@@ -37,3 +37,6 @@ From here, launch Super Mario Odyssey. Open a save file and use the D-Pad to nav
 In order of priority:
 * Add support for TSV conversions (many Tool-Assisted Speedruns use spreadsheets for syntax due to convenience; see [**TSV-TAS**](https://github.com/xiivler/TSV-TAS))
 * Refine UI (especially buttons) to allow for more efficient usage
+
+## Credits
+Every project I used here was linked as a GitHub repo in this README at some point (I think), so credit goes to the authors of those repositories. The [**Practice Mod generator**](https://tas.monsterdruide.one/smo-practice/) was made by [**MonsterDruide1**](https://github.com/monsterdruide1/). Also credit to the authors of any packages I used.
