@@ -22,15 +22,15 @@ const OutPacketType = {
 };
 
 const InPacketType = {
-  Init: 254,
-  Log: 253
+  Init: 254,  // -2 as unsigned byte (0xFE)
+  Log: 253    // -3 as unsigned byte (0xFD)
 };
 
 // Server state
 let clientAddress = null;
 let clientPort = CLIENT_PORT;
 let udpServer = null;
-let uploadedScripts = new Map();
+let uploadedScripts = new Map(); // filename -> script content
 
 // Stage list
 const STAGES = ["AnimalChaseExStage", "BikeSteelExStage", "BikeSteelNoCapExStage", "BossRaidWorldHomeStage", "BullRunExStage", "ByugoPuzzleExStage", "CapAppearExStage", "CapAppearLavaLiftExStage", "CapRotatePackunExStage", "CapWorldHomeStage", "CapWorldTowerStage", "CityPeopleRoadStage", "CityWorld2DSign000Zone", "CityWorld2DSign001Zone", "CityWorld2DSign002Zone", "CityWorld2DSign003Zone", "CityWorld2DSign004Zone", "CityWorld2DSign005Zone", "CityWorld2DSign006Zone", "CityWorldFactory01Zone", "CityWorldFactoryStage", "CityWorldHomeStage", "CityWorldMainTowerStage", "CityWorldSandSlotStage", "CityWorldShop01Stage", "CityWorldTimerAthletic000Zone", "CityWorldTimerAthletic002Zone", "CityWorldTimerAthletic003Zone", "ClashWorldHomeStage", "ClashWorldShopStage", "CloudExStage", "CloudWorldHomeStage", "Cube2DExStage", "DemoBossRaidAttackStage", "DemoChangeWorldBossRaidAttackStage", "DemoChangeWorldFindKoopaShipStage", "DemoChangeWorldStage", "DemoCrashHomeFallStage", "DemoCrashHomeStage", "DemoEndingStage", "DemoHackFirstStage", "DemoHackKoopaStage", "DemoLavaWorldScenario1EndStage", "DemoMeetCapNpcSubStage", "DemoOpeningStage", "DemoStartWorldWaterfallStage", "DemoTakeOffKoopaForMoonStage", "DemoWorldMoveBackwardArriveStage", "DemoWorldMoveBackwardStage", "DemoWorldMoveForwardArriveStage", "DemoWorldMoveForwardFirstStage", "DemoWorldMoveForwardStage", "DemoWorldMoveMoonBackwardStage", "DemoWorldMoveMoonForwardFirstStage", "DemoWorldMoveMoonForwardStage", "DemoWorldWarpHoleStage", "DonsukeExStage", "DotHardExStage", "DotTowerExStage", "ElectricWireExStage", "FastenerExStage", "FogMountainExStage", "ForestWorld2DRoadZone", "ForestWorldAthleticZone", "ForestWorldBonusStage", "ForestWorldBossStage", "ForestWorldCloudBonusExStage", "ForestWorldHomeStage", "ForestWorldTimerAthletic001Zone", "ForestWorldTowerStage", "ForestWorldWaterExStage", "ForestWorldWoodsCostumeStage", "ForestWorldWoodsStage", "ForestWorldWoodsTreasureStage", "ForkExStage", "FrogPoisonExStage", "FrogSearchExStage", "FukuwaraiKuriboStage", "FukuwaraiMarioStage", "GabuzouClockExStage", "Galaxy2DExStage", "GotogotonExStage", "HomeShipInsideStage", "IceWalkerExStage", "IceWaterBlockExStage", "IceWaterDashExStage", "ImomuPoisonExStage", "JangoExStage", "JizoSwitchExStage", "KaronWingTowerStage", "KillerRailCollisionExStage", "KillerRoadExStage", "KillerRoadNoCapExStage", "LakeWorld2DZone", "LakeWorldHomeStage", "LakeWorldShopStage", "LakeWorldTimerAthletic000Zone", "LakeWorldTownZone", "LavaBonus1Zone", "LavaWorldBubbleLaneExStage", "LavaWorldCaveZone", "LavaWorldClockExStage", "LavaWorldCostumeStage", "LavaWorldExcavationExStage", "LavaWorldFenceLiftExStage", "LavaWorldHomeStage", "LavaWorldIslandZone", "LavaWorldShopStage", "LavaWorldTimerAthletic000Zone", "LavaWorldTimerAthletic001Zone", "LavaWorldTreasureStage", "LavaWorldUpDownExStage", "LavaWorldUpDownYoshiExStage", "Lift2DExStage", "MeganeLiftExStage", "MoonAthleticExStage", "MoonWorldBasement000Zone", "MoonWorldBasement001Zone", "MoonWorldBasement002Zone", "MoonWorldBasement003Zone", "MoonWorldBasement004Zone", "MoonWorldBasementStage", "MoonWorldCaptureParadeBullZone", "MoonWorldCaptureParadeKillerZone", "MoonWorldCaptureParadeLavaPillarZone", "MoonWorldCaptureParadeLiftZone", "MoonWorldCaptureParadeMeganeZone", "MoonWorldCaptureParadeStage", "MoonWorldHome2DZone", "MoonWorldHomeStage", "MoonWorldKoopa1Stage", "MoonWorldKoopa2Stage", "MoonWorldShopRoom", "MoonWorldSphinxRoom", "MoonWorldWeddingRoom2Stage", "MoonWorldWeddingRoomStage", "MoonWorldWeddingRoomZone", "Note2D3DRoomExStage", "PackunPoisonExStage", "PackunPoisonNoCapExStage", "PeachWorldCastleStage", "PeachWorldCostumeStage", "PeachWorldHomeStage", "PeachWorldPictureBossForestStage", "PeachWorldPictureBossKnuckleStage", "PeachWorldPictureBossMagmaStage", "PeachWorldPictureBossRaidStage", "PeachWorldPictureGiantWanderBossStage", "PeachWorldPictureMofumofuStage", "PeachWorldPictureRoomDokanZone", "PeachWorldPictureRoomZone", "PeachWorldShopStage", "PoisonWaveExStage", "PoleGrabCeilExStage", "PoleKillerExStage", "PushBlockExStage", "RadioControlExStage", "RailCollisionExStage", "ReflectBombExStage", "RevengeBossKnuckleStage", "RevengeBossMagmaStage", "RevengeBossRaidStage", "RevengeForestBossStage", "RevengeGiantWanderBossStage", "RevengeMofumofuStage", "RocketFlowerExStage", "RollingExStage", "SandWorldCostumeStage", "SandWorldHomeStage", "SandWorldHomeTownZone", "SandWorldKillerExStage", "SandWorldKillerTowerZone", "SandWorldMeganeExStage", "SandWorldPressExStage", "SandWorldPyramid000Stage", "SandWorldPyramid001Stage", "SandWorldRotateExStage", "SandWorldSecretStage", "SandWorldShopStage", "SandWorldSlotStage", "SandWorldSphinxExStage", "SandWorldUnderground000Stage", "SandWorldUnderground001Stage", "SandWorldVibrationStage", "SeaWorld2DLargeZone", "SeaWorld2DSmallZone", "SeaWorldBeachVolleyBallZone", "SeaWorldBottomHollowZone", "SeaWorldCostumeStage", "SeaWorldCoveCaveZone", "SeaWorldDamageBallZone", "SeaWorldHomeStage", "SeaWorldLavaZone", "SeaWorldLighthouseZone", "SeaWorldLongReefZone", "SeaWorldSecretStage", "SeaWorldSneakingManStage", "SeaWorldSphinxQuizZone", "SeaWorldUnderGlassZone", "SeaWorldUtsuboCaveStage", "SeaWorldUtsuboDenZone", "SeaWorldVibrationStage", "SeaWorldWallCaveCenterZone", "SeaWorldWallCaveWestZone", "SenobiTowerExStage", "SenobiTowerYoshiExStage", "ShootingCityExStage", "ShootingCityYoshiExStage", "ShootingElevatorExStage", "SkyWorldCastleZone", "SkyWorldCloudBonusExStage", "SkyWorldCostumeStage", "SkyWorldHomeStage", "SkyWorldShopStage", "SkyWorldTreasureStage", "SkyWorldWallZone", "SnowWorldBalconyZone", "SnowWorldByugoZone", "SnowWorldCloudBonusExStage", "SnowWorldCostumeStage", "SnowWorldGabuzouZone", "SnowWorldHomeStage", "SnowWorldIcicleZone", "SnowWorldLobby000Stage", "SnowWorldLobby001Stage", "SnowWorldLobbyExStage", "SnowWorldRace000Stage", "SnowWorldRace001Stage", "SnowWorldRaceCircuitZone", "SnowWorldRaceExStage", "SnowWorldRaceExZone", "SnowWorldRaceFlagZone", "SnowWorldRaceGroundZone", "SnowWorldRaceHardExStage", "SnowWorldRaceObjectZone", "SnowWorldRaceTutorialStage", "SnowWorldShopStage", "SnowWorldTownStage", "SnowWorldTownZone", "Special1WorldHomeStage", "Special1WorldTowerBombTailStage", "Special1WorldTowerCapThrowerStage", "Special1WorldTowerFireBlowerStage", "Special1WorldTowerRoomZone", "Special1WorldTowerStackerStage", "Special2WorldCloudStage", "Special2WorldHomeStage", "Special2WorldKoopaStage", "Special2WorldLavaStage", "StaffRollMoonRockDemo", "SwingSteelExStage", "Theater2DExStage", "TogezoRotateExStage", "TrampolineWallCatchExStage", "TrexBikeExStage", "TrexPoppunExStage", "TsukkunClimbExStage", "TsukkunRotateExStage", "WanwanClashExStage", "WaterTubeExStage", "WaterValleyExStage", "WaterfallWorldHomeStage", "WindBlowExStage", "WorldMapStage", "YoshiCloudExStage"];
@@ -413,7 +413,11 @@ function buildPacket(type, data) {
 }
 
 function buildTeleportPacket(x, y, z) {
-  const data = Buffer.concat([floatToBytes(x), floatToBytes(y), floatToBytes(z)]);
+  const data = Buffer.concat([
+    floatToBytes(x),
+    floatToBytes(y),
+    floatToBytes(z)
+  ]);
   return buildPacket(OutPacketType.PlayerTeleport, data);
 }
 
@@ -434,7 +438,12 @@ function buildSelectPacket(index) {
 }
 
 function buildUINavigationPacket(direction) {
-  const values = { left: 1 << 12, up: 1 << 13, right: 1 << 14, down: 1 << 15 };
+  const values = {
+    left: 1 << 12,
+    up: 1 << 13,
+    right: 1 << 14,
+    down: 1 << 15
+  };
   return buildPacket(OutPacketType.UINavigation, longToBytes(values[direction]));
 }
 
@@ -456,7 +465,8 @@ function parseScriptFile(content) {
     const buttons = parts[1].split(';');
     const lStick = parts[2].split(';').map(v => parseInt(v) / 32767.0);
     const rStick = parts[3].split(';').map(v => parseInt(v) / 32767.0);
-    
+
+    // Fill empty frames if needed
     while (frames.length < frameNo) {
       frames.push(createEmptyFrame());
     }
@@ -528,15 +538,18 @@ function frameToBytes(frame) {
   
   return Buffer.concat([
     lStickX, lStickY, rStickX, rStickY,
-    Buffer.from([buttons1, buttons2, 0, 0])
+    Buffer.from([buttons1, buttons2, 0, 0]) // padding to 0x20
   ]);
 }
 
 function buildScriptPackets(scriptName, frames) {
   const packets = [];
+
+  // Send script info
   const nameBytes = Buffer.from(scriptName, 'utf8');
   packets.push(buildPacket(OutPacketType.PlayerScriptInfo, nameBytes));
-  
+
+  // Send frames in chunks of 1500
   for (let i = 0; i < frames.length; i += 1500) {
     const chunk = frames.slice(i, i + 1500);
     const frameData = Buffer.concat(chunk.map(frameToBytes));
@@ -561,7 +574,7 @@ function startUDPServer() {
     
     if (packetType === InPacketType.Init) {
       clientAddress = rinfo.address;
-      clientPort = rinfo.port;
+      clientPort = rinfo.port; // Use the port the client sent from
       console.log(`✓ Client connected from ${clientAddress}:${clientPort}`);
       io.emit('clientStatus', { connected: true, address: clientAddress });
     } else if (packetType === InPacketType.Log) {
@@ -578,6 +591,8 @@ function startUDPServer() {
     if (err.code === 'EADDRINUSE') {
       console.error(`\n❌ ERROR: Port ${SERVER_PORT} is already in use!`);
       console.error('Make sure the Java server is NOT running.');
+      console.error('On Linux/Mac: Check with: lsof -i :${SERVER_PORT}');
+      console.error('On Windows: Check with: netstat -ano | findstr :${SERVER_PORT}\n');
       process.exit(1);
     }
     udpServer.close();
@@ -763,6 +778,7 @@ function getHTML() {
   <script src="/socket.io/socket.io.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    
     body {
       font-family: 'Consolas', 'Monaco', monospace;
       background: #0d1117;
@@ -816,6 +832,7 @@ function getHTML() {
       <h1>🎮 SMO Practice Server</h1>
       <div id="status" class="status disconnected">Disconnected</div>
     </header>
+
     <div class="section">
       <h2>📜 Scripts</h2>
       <div class="upload-area" onclick="document.getElementById('fileInput').click()">
@@ -827,6 +844,7 @@ function getHTML() {
       <div id="scriptList" class="script-list">
         <div style="color: #8b949e; text-align: center;">No scripts uploaded</div>
       </div>
+
     </div>
     <div class="section">
       <h2>⚡ Commands</h2>
@@ -843,6 +861,7 @@ function getHTML() {
         <button onclick="sendCommand('stop')">Stop TAS</button>
       </div>
     </div>
+
     <div class="section">
       <h2>📋 Log</h2>
       <div id="log" class="log">
@@ -850,6 +869,8 @@ function getHTML() {
       </div>
     </div>
   </div>
+
+  <!-- Modal for command parameters -->
   <div id="modal" class="modal">
     <div class="modal-content">
       <h3 id="modalTitle">Command</h3>
@@ -860,13 +881,15 @@ function getHTML() {
       </div>
     </div>
   </div>
+
   <script>
     const socket = io();
     let selectedScript = null;
     let currentModal = null;
     let isConnected = false;
     const STAGES = ${JSON.stringify(STAGES)};
-    
+
+    // Socket events
     socket.on('clientStatus', (data) => {
       isConnected = data.connected;
       const statusEl = document.getElementById('status');
