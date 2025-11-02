@@ -342,6 +342,19 @@ app.get('/scripts', (req, res) => {
   res.json(Array.from(uploadedScripts.keys()));
 });
 
+app.delete('/scripts/:filename', (req, res) => {
+  const filename = req.params.filename;
+
+  if (!uploadedScripts.has(filename)) {
+    return res.status(404).json({ error: 'Script not found' });
+  }
+
+  uploadedScripts.delete(filename);
+  console.log(`Script deleted: ${filename}`);
+
+  res.json({ success: true, filename });
+});
+
 app.get('/client-status', (req, res) => {
   res.json({ connected: !!clientAddress, address: clientAddress });
 });
@@ -573,17 +586,54 @@ function getHTML() {
       border-radius: 4px;
       cursor: pointer;
       transition: all 0.2s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    
+
     .script-item:hover {
       background: #21262d;
       border-color: #58a6ff;
     }
-    
+
     .script-item.selected {
       background: #1f6feb;
       border-color: #58a6ff;
       color: #fff;
+    }
+
+    .script-name {
+      flex: 1;
+      padding-right: 10px;
+    }
+
+    .delete-btn {
+      background: transparent;
+      color: #f85149;
+      border: 1px solid #30363d;
+      padding: 2px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.9em;
+      font-weight: bold;
+      transition: all 0.2s;
+      min-width: 24px;
+    }
+
+    .delete-btn:hover {
+      background: #f85149;
+      color: #fff;
+      border-color: #f85149;
+    }
+
+    .script-item.selected .delete-btn {
+      border-color: #58a6ff;
+      color: #fff;
+    }
+
+    .script-item.selected .delete-btn:hover {
+      background: #da3633;
+      border-color: #da3633;
     }
     
     .modal {
@@ -853,9 +903,12 @@ function getHTML() {
         list.innerHTML = '<div style="color: #8b949e; text-align: center;">No scripts uploaded</div>';
         return;
       }
-      
-      list.innerHTML = scripts.map(s => 
-        \`<div class="script-item \${s === selectedScript ? 'selected' : ''}" onclick="selectScript('\${s}')">\${s}</div>\`
+
+      list.innerHTML = scripts.map(s =>
+        \`<div class="script-item \${s === selectedScript ? 'selected' : ''}">
+          <div class="script-name" onclick="selectScript('\${s}')">\${s}</div>
+          <button class="delete-btn" onclick="deleteScript(event, '\${s}')" title="Delete script">×</button>
+        </div>\`
       ).join('');
     }
     
@@ -863,7 +916,39 @@ function getHTML() {
       selectedScript = name;
       refreshScripts();
     }
-    
+
+    async function deleteScript(event, filename) {
+      // Stop event propagation to prevent selecting the script
+      event.stopPropagation();
+
+      if (!confirm(\`Are you sure you want to delete "\${filename}"?\`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(\`/scripts/\${encodeURIComponent(filename)}\`, {
+          method: 'DELETE'
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          addLog(\`Deleted: \${filename}\`, 'success');
+
+          // Clear selected script if it was deleted
+          if (selectedScript === filename) {
+            selectedScript = null;
+          }
+
+          refreshScripts();
+        } else {
+          addLog('Delete failed: ' + (data.error || 'Unknown error'), 'error');
+        }
+      } catch (err) {
+        addLog('Delete failed: ' + err.message, 'error');
+      }
+    }
+
     function openModal(command) {
       if (!isConnected) {
         addLog('Error: No Switch client connected', 'error');
