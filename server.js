@@ -4,6 +4,7 @@ const http = require('http');
 const socketIO = require('socket.io');
 const multer = require('multer');
 const path = require('path');
+const { TSVConverter } = require('./tsv-tas');
 
 // Configuration
 const CLIENT_PORT = 7901;
@@ -301,14 +302,40 @@ app.post('/upload-script', upload.single('script'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  
+
   const filename = req.file.originalname;
   const content = req.file.buffer.toString('utf8');
-  
+  const isTSV = filename.toLowerCase().endsWith('.tsv');
+
   uploadedScripts.set(filename, content);
   console.log(`Script uploaded: ${filename}`);
-  
-  res.json({ success: true, filename });
+
+  res.json({ success: true, filename, isTSV });
+});
+
+app.post('/convert-tsv', express.json(), (req, res) => {
+  try {
+    const { filename, includeEmptyLines } = req.body;
+
+    if (!uploadedScripts.has(filename)) {
+      return res.status(404).json({ error: 'TSV file not found' });
+    }
+
+    const tsvContent = uploadedScripts.get(filename);
+    // Default to true - most TAS scripts need all frames for proper timing
+    const converter = new TSVConverter(includeEmptyLines !== false);
+    const txtContent = converter.convert(tsvContent);
+
+    // Replace the TSV content with the converted TXT content, keeping the original filename
+    // This way the user sees the same filename they uploaded, but it contains the converted script
+    uploadedScripts.set(filename, txtContent);
+    console.log(`Converted ${filename} to TXT format (keeping original filename)`);
+
+    res.json({ success: true, filename, txtContent });
+  } catch (err) {
+    console.error('TSV conversion error:', err);
+    res.status(400).json({ error: err.message });
+  }
 });
 
 app.get('/scripts', (req, res) => {
@@ -677,8 +704,9 @@ function getHTML() {
       <h2>📜 Scripts</h2>
       <div class="upload-area" onclick="document.getElementById('fileInput').click()">
         <div>Drop TAS script files here or click to upload</div>
+        <div style="font-size: 0.85em; color: #8b949e; margin-top: 5px;">Supports .txt and .tsv files</div>
         <label class="upload-btn">Choose Files</label>
-        <input type="file" id="fileInput" multiple accept=".txt">
+        <input type="file" id="fileInput" multiple accept=".txt,.tsv">
       </div>
       <div id="scriptList" class="script-list">
         <div style="color: #8b949e; text-align: center;">No scripts uploaded</div>
@@ -720,12 +748,36 @@ function getHTML() {
       </div>
     </div>
   </div>
+
+  <!-- Modal for TSV conversion -->
+  <div id="tsvModal" class="modal">
+    <div class="modal-content">
+      <h3>Convert TSV to TXT</h3>
+      <div id="tsvModalBody">
+        <p>A TSV file has been uploaded. Would you like to convert it to TXT format?</p>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="includeEmptyLines" style="width: auto;" checked>
+            Include empty frames (recommended for proper timing)
+          </label>
+        </div>
+        <div style="font-size: 0.85em; color: #8b949e; margin-top: 10px;">
+          The converted .txt file will be added to your script list automatically.
+        </div>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn-secondary" onclick="closeTSVModal()">Skip</button>
+        <button class="btn-primary" onclick="convertTSV()">Convert</button>
+      </div>
+    </div>
+  </div>
   
   <script>
     const socket = io();
     let selectedScript = null;
     let currentModal = null;
     let isConnected = false;
+    let currentTSVFile = null;
     
     // Socket events
     socket.on('clientStatus', (data) => {
@@ -764,7 +816,7 @@ function getHTML() {
       for (const file of files) {
         const formData = new FormData();
         formData.append('script', file);
-        
+
         try {
           const res = await fetch('/upload-script', {
             method: 'POST',
@@ -773,6 +825,13 @@ function getHTML() {
           const data = await res.json();
           if (data.success) {
             addLog(\`Uploaded: \${data.filename}\`, 'success');
+
+            // If TSV file, show conversion modal
+            if (data.isTSV) {
+              currentTSVFile = data.filename;
+              openTSVModal();
+            }
+
             refreshScripts();
           }
         } catch (err) {
@@ -976,9 +1035,48 @@ function getHTML() {
       });
     }
     
+    // TSV Modal functions
+    function openTSVModal() {
+      document.getElementById('tsvModal').classList.add('active');
+    }
+
+    function closeTSVModal() {
+      document.getElementById('tsvModal').classList.remove('active');
+      currentTSVFile = null;
+    }
+
+    async function convertTSV() {
+      if (!currentTSVFile) return;
+
+      const includeEmptyLines = document.getElementById('includeEmptyLines').checked;
+
+      try {
+        const res = await fetch('/convert-tsv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: currentTSVFile,
+            includeEmptyLines
+          })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          addLog(\`Converted \${currentTSVFile} to TXT format\`, 'success');
+          refreshScripts();
+          closeTSVModal();
+        } else {
+          addLog('Conversion failed: ' + (data.error || 'Unknown error'), 'error');
+        }
+      } catch (err) {
+        addLog('Conversion failed: ' + err.message, 'error');
+      }
+    }
+
     // Stage list for datalist
     const STAGES = ["AnimalChaseExStage", "BikeSteelExStage", "BikeSteelNoCapExStage", "BossRaidWorldHomeStage", "BullRunExStage", "ByugoPuzzleExStage", "CapAppearExStage", "CapAppearLavaLiftExStage", "CapRotatePackunExStage", "CapWorldHomeStage", "CapWorldTowerStage", "CityPeopleRoadStage", "CityWorld2DSign000Zone", "CityWorld2DSign001Zone", "CityWorld2DSign002Zone", "CityWorld2DSign003Zone", "CityWorld2DSign004Zone", "CityWorld2DSign005Zone", "CityWorld2DSign006Zone", "CityWorldFactory01Zone", "CityWorldFactoryStage", "CityWorldHomeStage", "CityWorldMainTowerStage", "CityWorldSandSlotStage", "CityWorldShop01Stage", "CityWorldTimerAthletic000Zone", "CityWorldTimerAthletic002Zone", "CityWorldTimerAthletic003Zone", "ClashWorldHomeStage", "ClashWorldShopStage", "CloudExStage", "CloudWorldHomeStage", "Cube2DExStage", "DemoBossRaidAttackStage", "DemoChangeWorldBossRaidAttackStage", "DemoChangeWorldFindKoopaShipStage", "DemoChangeWorldStage", "DemoCrashHomeFallStage", "DemoCrashHomeStage", "DemoEndingStage", "DemoHackFirstStage", "DemoHackKoopaStage", "DemoLavaWorldScenario1EndStage", "DemoMeetCapNpcSubStage", "DemoOpeningStage", "DemoStartWorldWaterfallStage", "DemoTakeOffKoopaForMoonStage", "DemoWorldMoveBackwardArriveStage", "DemoWorldMoveBackwardStage", "DemoWorldMoveForwardArriveStage", "DemoWorldMoveForwardFirstStage", "DemoWorldMoveForwardStage", "DemoWorldMoveMoonBackwardStage", "DemoWorldMoveMoonForwardFirstStage", "DemoWorldMoveMoonForwardStage", "DemoWorldWarpHoleStage", "DonsukeExStage", "DotHardExStage", "DotTowerExStage", "ElectricWireExStage", "FastenerExStage", "FogMountainExStage", "ForestWorld2DRoadZone", "ForestWorldAthleticZone", "ForestWorldBonusStage", "ForestWorldBossStage", "ForestWorldCloudBonusExStage", "ForestWorldHomeStage", "ForestWorldTimerAthletic001Zone", "ForestWorldTowerStage", "ForestWorldWaterExStage", "ForestWorldWoodsCostumeStage", "ForestWorldWoodsStage", "ForestWorldWoodsTreasureStage", "ForkExStage", "FrogPoisonExStage", "FrogSearchExStage", "FukuwaraiKuriboStage", "FukuwaraiMarioStage", "GabuzouClockExStage", "Galaxy2DExStage", "GotogotonExStage", "HomeShipInsideStage", "IceWalkerExStage", "IceWaterBlockExStage", "IceWaterDashExStage", "ImomuPoisonExStage", "JangoExStage", "JizoSwitchExStage", "KaronWingTowerStage", "KillerRailCollisionExStage", "KillerRoadExStage", "KillerRoadNoCapExStage", "LakeWorld2DZone", "LakeWorldHomeStage", "LakeWorldShopStage", "LakeWorldTimerAthletic000Zone", "LakeWorldTownZone", "LavaBonus1Zone", "LavaWorldBubbleLaneExStage", "LavaWorldCaveZone", "LavaWorldClockExStage", "LavaWorldCostumeStage", "LavaWorldExcavationExStage", "LavaWorldFenceLiftExStage", "LavaWorldHomeStage", "LavaWorldIslandZone", "LavaWorldShopStage", "LavaWorldTimerAthletic000Zone", "LavaWorldTimerAthletic001Zone", "LavaWorldTreasureStage", "LavaWorldUpDownExStage", "LavaWorldUpDownYoshiExStage", "Lift2DExStage", "MeganeLiftExStage", "MoonAthleticExStage", "MoonWorldBasement000Zone", "MoonWorldBasement001Zone", "MoonWorldBasement002Zone", "MoonWorldBasement003Zone", "MoonWorldBasement004Zone", "MoonWorldBasementStage", "MoonWorldCaptureParadeBullZone", "MoonWorldCaptureParadeKillerZone", "MoonWorldCaptureParadeLavaPillarZone", "MoonWorldCaptureParadeLiftZone", "MoonWorldCaptureParadeMeganeZone", "MoonWorldCaptureParadeStage", "MoonWorldHome2DZone", "MoonWorldHomeStage", "MoonWorldKoopa1Stage", "MoonWorldKoopa2Stage", "MoonWorldShopRoom", "MoonWorldSphinxRoom", "MoonWorldWeddingRoom2Stage", "MoonWorldWeddingRoomStage", "MoonWorldWeddingRoomZone", "Note2D3DRoomExStage", "PackunPoisonExStage", "PackunPoisonNoCapExStage", "PeachWorldCastleStage", "PeachWorldCostumeStage", "PeachWorldHomeStage", "PeachWorldPictureBossForestStage", "PeachWorldPictureBossKnuckleStage", "PeachWorldPictureBossMagmaStage", "PeachWorldPictureBossRaidStage", "PeachWorldPictureGiantWanderBossStage", "PeachWorldPictureMofumofuStage", "PeachWorldPictureRoomDokanZone", "PeachWorldPictureRoomZone", "PeachWorldShopStage", "PoisonWaveExStage", "PoleGrabCeilExStage", "PoleKillerExStage", "PushBlockExStage", "RadioControlExStage", "RailCollisionExStage", "ReflectBombExStage", "RevengeBossKnuckleStage", "RevengeBossMagmaStage", "RevengeBossRaidStage", "RevengeForestBossStage", "RevengeGiantWanderBossStage", "RevengeMofumofuStage", "RocketFlowerExStage", "RollingExStage", "SandWorldCostumeStage", "SandWorldHomeStage", "SandWorldHomeTownZone", "SandWorldKillerExStage", "SandWorldKillerTowerZone", "SandWorldMeganeExStage", "SandWorldPressExStage", "SandWorldPyramid000Stage", "SandWorldPyramid001Stage", "SandWorldRotateExStage", "SandWorldSecretStage", "SandWorldShopStage", "SandWorldSlotStage", "SandWorldSphinxExStage", "SandWorldUnderground000Stage", "SandWorldUnderground001Stage", "SandWorldVibrationStage", "SeaWorld2DLargeZone", "SeaWorld2DSmallZone", "SeaWorldBeachVolleyBallZone", "SeaWorldBottomHollowZone", "SeaWorldCostumeStage", "SeaWorldCoveCaveZone", "SeaWorldDamageBallZone", "SeaWorldHomeStage", "SeaWorldLavaZone", "SeaWorldLighthouseZone", "SeaWorldLongReefZone", "SeaWorldSecretStage", "SeaWorldSneakingManStage", "SeaWorldSphinxQuizZone", "SeaWorldUnderGlassZone", "SeaWorldUtsuboCaveStage", "SeaWorldUtsuboDenZone", "SeaWorldVibrationStage", "SeaWorldWallCaveCenterZone", "SeaWorldWallCaveWestZone", "SenobiTowerExStage", "SenobiTowerYoshiExStage", "ShootingCityExStage", "ShootingCityYoshiExStage", "ShootingElevatorExStage", "SkyWorldCastleZone", "SkyWorldCloudBonusExStage", "SkyWorldCostumeStage", "SkyWorldHomeStage", "SkyWorldShopStage", "SkyWorldTreasureStage", "SkyWorldWallZone", "SnowWorldBalconyZone", "SnowWorldByugoZone", "SnowWorldCloudBonusExStage", "SnowWorldCostumeStage", "SnowWorldGabuzouZone", "SnowWorldHomeStage", "SnowWorldIcicleZone", "SnowWorldLobby000Stage", "SnowWorldLobby001Stage", "SnowWorldLobbyExStage", "SnowWorldRace000Stage", "SnowWorldRace001Stage", "SnowWorldRaceCircuitZone", "SnowWorldRaceExStage", "SnowWorldRaceExZone", "SnowWorldRaceFlagZone", "SnowWorldRaceGroundZone", "SnowWorldRaceHardExStage", "SnowWorldRaceObjectZone", "SnowWorldRaceTutorialStage", "SnowWorldShopStage", "SnowWorldTownStage", "SnowWorldTownZone", "Special1WorldHomeStage", "Special1WorldTowerBombTailStage", "Special1WorldTowerCapThrowerStage", "Special1WorldTowerFireBlowerStage", "Special1WorldTowerRoomZone", "Special1WorldTowerStackerStage", "Special2WorldCloudStage", "Special2WorldHomeStage", "Special2WorldKoopaStage", "Special2WorldLavaStage", "StaffRollMoonRockDemo", "SwingSteelExStage", "Theater2DExStage", "TogezoRotateExStage", "TrampolineWallCatchExStage", "TrexBikeExStage", "TrexPoppunExStage", "TsukkunClimbExStage", "TsukkunRotateExStage", "WanwanClashExStage", "WaterTubeExStage", "WaterValleyExStage", "WaterfallWorldHomeStage", "WindBlowExStage", "WorldMapStage", "YoshiCloudExStage"];
-    
+
     // Initialize
     updateButtonStates();
     refreshScripts();

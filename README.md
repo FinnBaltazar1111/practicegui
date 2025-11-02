@@ -35,7 +35,6 @@ From here, launch Super Mario Odyssey. Open a save file and use the D-Pad to nav
 
 ## Planned updates
 In order of priority:
-* Add support for TSV conversions (many Tool-Assisted Speedruns use spreadsheets for syntax due to convenience; see [**TSV-TAS**](https://github.com/xiivler/TSV-TAS))
 * Refine UI (especially buttons) to allow for more efficient usage
 
 ## Credits
