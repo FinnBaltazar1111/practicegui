@@ -35,7 +35,11 @@ From here, launch Super Mario Odyssey. Open a save file and use the D-Pad to nav
 
 ## Planned updates
 In order of priority:
-* Refine UI (especially buttons) to allow for more efficient usage
+* Integrate with Google Sheets to allow directly loading TSV scripts
+  * Add an API
+  * Parse variable-metadata from TSV scripts
+
+(If you have no idea what I'm talking about, just wait)
 
 ## Credits
 Every project I used here was linked as a GitHub repo in this README at some point (I think), so credit goes to the authors of those repositories. The [**Practice Mod generator**](https://tas.monsterdruide.one/smo-practice/) was made by [**MonsterDruide1**](https://github.com/monsterdruide1/). Also credit to the authors of any packages I used.
