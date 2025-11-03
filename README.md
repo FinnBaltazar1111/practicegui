@@ -36,8 +36,9 @@ From here, launch Super Mario Odyssey. Open a save file and use the D-Pad to nav
 ## Planned updates
 In order of priority:
 * Integrate with Google Sheets to allow directly loading TSV scripts
-  * Add an API
   * Parse variable-metadata from TSV scripts
+> [!NOTE]
+> This will be harder to implement than I expected because it's difficult to get Apps Script scripts to interact with the local network. This is still the #1 priority, it will just take some time.
 
 (If you have no idea what I'm talking about, just wait)
 
