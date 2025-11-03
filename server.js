@@ -359,6 +359,332 @@ app.get('/client-status', (req, res) => {
   res.json({ connected: !!clientAddress, address: clientAddress });
 });
 
+// API endpoint for executing commands
+async function executeCommand(command, params) {
+  if (!clientAddress) {
+    throw new Error('No Switch client connected');
+  }
+
+  let packets = [];
+  let result = {};
+
+  switch (command) {
+    case 'tp':
+    case 'teleport':
+      if (typeof params.x !== 'number' || typeof params.y !== 'number' || typeof params.z !== 'number') {
+        throw new Error('Invalid coordinates: x, y, z must be numbers');
+      }
+      packets = [buildTeleportPacket(params.x, params.y, params.z)];
+      result = { command: 'teleport', coordinates: { x: params.x, y: params.y, z: params.z } };
+      break;
+
+    case 'go':
+    case 'stage':
+      if (!params.stageName || typeof params.stageName !== 'string') {
+        throw new Error('stageName is required and must be a string');
+      }
+      if (!STAGES.includes(params.stageName)) {
+        throw new Error(`Stage "${params.stageName}" not found in stage list`);
+      }
+      packets = [buildGoPacket(
+        params.stageName,
+        params.scenario || -1,
+        params.entrance || 'start',
+        params.startScript || false
+      )];
+      result = {
+        command: 'stage',
+        stageName: params.stageName,
+        scenario: params.scenario || -1,
+        entrance: params.entrance || 'start',
+        startScript: params.startScript || false
+      };
+      break;
+
+    case 'script':
+    case 'loadScript': {
+      if (!params.filename || typeof params.filename !== 'string') {
+        throw new Error('filename is required and must be a string');
+      }
+      const loadedScript = uploadedScripts.get(params.filename);
+      if (!loadedScript) {
+        throw new Error(`Script "${params.filename}" not found`);
+      }
+      const frames = parseScriptFile(loadedScript);
+      packets = buildScriptPackets(params.filename, frames);
+      result = { command: 'loadScript', filename: params.filename, frames: frames.length };
+      console.log(`[API] Loading script ${params.filename} with ${frames.length} frames`);
+      break;
+    }
+
+    case 'uploadScript': {
+      if (!params.filename || typeof params.filename !== 'string') {
+        throw new Error('filename is required and must be a string');
+      }
+      if (!params.content || typeof params.content !== 'string') {
+        throw new Error('content is required and must be a string');
+      }
+
+      // Check if the file is a TSV file
+      const isTSV = params.filename.toLowerCase().endsWith('.tsv');
+      let scriptContent = params.content;
+      let converted = false;
+
+      if (isTSV) {
+        try {
+          // Convert TSV to TXT format
+          // includeEmptyLines defaults to true (can be overridden via params)
+          const includeEmptyLines = params.includeEmptyLines !== false;
+          const converter = new TSVConverter(includeEmptyLines);
+          scriptContent = converter.convert(params.content);
+          converted = true;
+          console.log(`[API] Converted TSV file: ${params.filename} (includeEmptyLines: ${includeEmptyLines})`);
+        } catch (conversionError) {
+          throw new Error(`TSV conversion failed: ${conversionError.message}`);
+        }
+      }
+
+      uploadedScripts.set(params.filename, scriptContent);
+      result = {
+        command: 'uploadScript',
+        filename: params.filename,
+        converted: converted,
+        originalFormat: isTSV ? 'tsv' : 'txt'
+      };
+      console.log(`[API] Script uploaded: ${params.filename}${converted ? ' (converted from TSV)' : ''}`);
+      // No packets to send to Switch for upload
+      return result;
+    }
+
+    case 'deleteScript':
+      if (!params.filename || typeof params.filename !== 'string') {
+        throw new Error('filename is required and must be a string');
+      }
+      if (!uploadedScripts.has(params.filename)) {
+        throw new Error(`Script "${params.filename}" not found`);
+      }
+      uploadedScripts.delete(params.filename);
+      result = { command: 'deleteScript', filename: params.filename };
+      console.log(`[API] Script deleted: ${params.filename}`);
+      // No packets to send to Switch for delete
+      return result;
+
+    case 'select':
+      if (typeof params.index !== 'number' || params.index < 0) {
+        throw new Error('index is required and must be a non-negative number');
+      }
+      packets = [buildSelectPacket(params.index)];
+      result = { command: 'select', index: params.index };
+      break;
+
+    case 'up':
+    case 'down':
+    case 'left':
+    case 'right':
+      packets = [buildUINavigationPacket(command)];
+      result = { command: 'navigation', direction: command };
+      break;
+
+    case 'start':
+    case 'startScript':
+      packets = [buildScriptStatePacket(1)];
+      result = { command: 'startScript' };
+      break;
+
+    case 'stop':
+    case 'stopScript':
+      packets = [buildScriptStatePacket(0)];
+      result = { command: 'stopScript' };
+      break;
+
+    default:
+      throw new Error(`Unknown command: ${command}`);
+  }
+
+  // Send packets if any
+  if (packets.length > 0) {
+    await sendPackets(packets);
+  }
+
+  return result;
+}
+
+// Single command execution endpoint
+app.post('/api/execute', async (req, res) => {
+  try {
+    const { command, params = {} } = req.body;
+
+    if (!command) {
+      return res.status(400).json({
+        success: false,
+        error: 'command is required'
+      });
+    }
+
+    const result = await executeCommand(command, params);
+
+    res.json({
+      success: true,
+      result
+    });
+
+  } catch (err) {
+    console.error('[API] Execute error:', err);
+    res.status(400).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// Queue multiple commands endpoint
+app.post('/api/queue', async (req, res) => {
+  try {
+    const { commands } = req.body;
+
+    if (!Array.isArray(commands) || commands.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'commands must be a non-empty array'
+      });
+    }
+
+    const results = [];
+    const errors = [];
+
+    for (let i = 0; i < commands.length; i++) {
+      const { command, params = {} } = commands[i];
+
+      if (!command) {
+        errors.push({
+          index: i,
+          error: 'command is required',
+          command: commands[i]
+        });
+        continue;
+      }
+
+      try {
+        const result = await executeCommand(command, params);
+        results.push({
+          index: i,
+          success: true,
+          result
+        });
+        console.log(`[API] Queue [${i + 1}/${commands.length}] executed: ${command}`);
+      } catch (err) {
+        console.error(`[API] Queue [${i + 1}/${commands.length}] error:`, err.message);
+        errors.push({
+          index: i,
+          error: err.message,
+          command
+        });
+      }
+    }
+
+    res.json({
+      success: errors.length === 0,
+      totalCommands: commands.length,
+      successfulCommands: results.length,
+      failedCommands: errors.length,
+      results,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
+  } catch (err) {
+    console.error('[API] Queue error:', err);
+    res.status(400).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// API info endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    name: 'SMO Practice Server API',
+    version: '1.0.0',
+    endpoints: {
+      '/api': {
+        method: 'GET',
+        description: 'API information and documentation'
+      },
+      '/api/execute': {
+        method: 'POST',
+        description: 'Execute a single command',
+        body: {
+          command: 'string (required)',
+          params: 'object (optional)'
+        }
+      },
+      '/api/queue': {
+        method: 'POST',
+        description: 'Execute multiple commands in sequence',
+        body: {
+          commands: 'array of {command, params} objects'
+        }
+      }
+    },
+    commands: {
+      teleport: {
+        aliases: ['tp', 'teleport'],
+        description: 'Teleport Mario to coordinates',
+        params: { x: 'number', y: 'number', z: 'number' }
+      },
+      stage: {
+        aliases: ['go', 'stage'],
+        description: 'Warp to a stage',
+        params: {
+          stageName: 'string (required)',
+          scenario: 'number (optional, default: -1)',
+          entrance: 'string (optional, default: "start")',
+          startScript: 'boolean (optional, default: false)'
+        }
+      },
+      loadScript: {
+        aliases: ['script', 'loadScript'],
+        description: 'Load a script to the Switch',
+        params: { filename: 'string' }
+      },
+      uploadScript: {
+        aliases: ['uploadScript'],
+        description: 'Upload a script to the server (supports .txt and .tsv files)',
+        params: {
+          filename: 'string (required)',
+          content: 'string (required)',
+          includeEmptyLines: 'boolean (optional, default: true, for TSV files only)'
+        }
+      },
+      deleteScript: {
+        aliases: ['deleteScript'],
+        description: 'Delete a script from the server',
+        params: { filename: 'string' }
+      },
+      startScript: {
+        aliases: ['start', 'startScript'],
+        description: 'Start script playback'
+      },
+      stopScript: {
+        aliases: ['stop', 'stopScript'],
+        description: 'Stop script playback'
+      },
+      select: {
+        aliases: ['select'],
+        description: 'Select a menu page',
+        params: { index: 'number' }
+      },
+      navigation: {
+        aliases: ['up', 'down', 'left', 'right'],
+        description: 'D-Pad navigation'
+      }
+    },
+    clientConnected: !!clientAddress,
+    clientAddress: clientAddress || null,
+    uploadedScripts: Array.from(uploadedScripts.keys())
+  });
+});
+
 io.on('connection', (socket) => {
   console.log('Web client connected');
   
