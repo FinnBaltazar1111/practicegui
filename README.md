@@ -1,9 +1,6 @@
 # **PracticeGUI**
 **PracticeGUI** is a GUI for [**smo-practice-server**](https://github.com/monsterdruide1/smo-practice-server).
 
-> [!NOTE]
-> Still in early development
-
 ## Usage
 ### Setting up your console
 > [!IMPORTANT]
