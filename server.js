@@ -4,6 +4,7 @@ const http = require('http');
 const socketIO = require('socket.io');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const { TSVConverter } = require('./tsv-tas');
 
 // Configuration
@@ -32,6 +33,9 @@ let clientAddress = null;
 let clientPort = CLIENT_PORT;
 let udpServer = null;
 let uploadedScripts = new Map(); // filename -> script content
+
+// Load option pages configuration
+const optionPages = JSON.parse(fs.readFileSync(path.join(__dirname, 'optionpages.json'), 'utf8'));
 
 // Stage list
 const STAGES = ["AnimalChaseExStage", "BikeSteelExStage", "BikeSteelNoCapExStage", "BossRaidWorldHomeStage", "BullRunExStage", "ByugoPuzzleExStage", "CapAppearExStage", "CapAppearLavaLiftExStage", "CapRotatePackunExStage", "CapWorldHomeStage", "CapWorldTowerStage", "CityPeopleRoadStage", "CityWorld2DSign000Zone", "CityWorld2DSign001Zone", "CityWorld2DSign002Zone", "CityWorld2DSign003Zone", "CityWorld2DSign004Zone", "CityWorld2DSign005Zone", "CityWorld2DSign006Zone", "CityWorldFactory01Zone", "CityWorldFactoryStage", "CityWorldHomeStage", "CityWorldMainTowerStage", "CityWorldSandSlotStage", "CityWorldShop01Stage", "CityWorldTimerAthletic000Zone", "CityWorldTimerAthletic002Zone", "CityWorldTimerAthletic003Zone", "ClashWorldHomeStage", "ClashWorldShopStage", "CloudExStage", "CloudWorldHomeStage", "Cube2DExStage", "DemoBossRaidAttackStage", "DemoChangeWorldBossRaidAttackStage", "DemoChangeWorldFindKoopaShipStage", "DemoChangeWorldStage", "DemoCrashHomeFallStage", "DemoCrashHomeStage", "DemoEndingStage", "DemoHackFirstStage", "DemoHackKoopaStage", "DemoLavaWorldScenario1EndStage", "DemoMeetCapNpcSubStage", "DemoOpeningStage", "DemoStartWorldWaterfallStage", "DemoTakeOffKoopaForMoonStage", "DemoWorldMoveBackwardArriveStage", "DemoWorldMoveBackwardStage", "DemoWorldMoveForwardArriveStage", "DemoWorldMoveForwardFirstStage", "DemoWorldMoveForwardStage", "DemoWorldMoveMoonBackwardStage", "DemoWorldMoveMoonForwardFirstStage", "DemoWorldMoveMoonForwardStage", "DemoWorldWarpHoleStage", "DonsukeExStage", "DotHardExStage", "DotTowerExStage", "ElectricWireExStage", "FastenerExStage", "FogMountainExStage", "ForestWorld2DRoadZone", "ForestWorldAthleticZone", "ForestWorldBonusStage", "ForestWorldBossStage", "ForestWorldCloudBonusExStage", "ForestWorldHomeStage", "ForestWorldTimerAthletic001Zone", "ForestWorldTowerStage", "ForestWorldWaterExStage", "ForestWorldWoodsCostumeStage", "ForestWorldWoodsStage", "ForestWorldWoodsTreasureStage", "ForkExStage", "FrogPoisonExStage", "FrogSearchExStage", "FukuwaraiKuriboStage", "FukuwaraiMarioStage", "GabuzouClockExStage", "Galaxy2DExStage", "GotogotonExStage", "HomeShipInsideStage", "IceWalkerExStage", "IceWaterBlockExStage", "IceWaterDashExStage", "ImomuPoisonExStage", "JangoExStage", "JizoSwitchExStage", "KaronWingTowerStage", "KillerRailCollisionExStage", "KillerRoadExStage", "KillerRoadNoCapExStage", "LakeWorld2DZone", "LakeWorldHomeStage", "LakeWorldShopStage", "LakeWorldTimerAthletic000Zone", "LakeWorldTownZone", "LavaBonus1Zone", "LavaWorldBubbleLaneExStage", "LavaWorldCaveZone", "LavaWorldClockExStage", "LavaWorldCostumeStage", "LavaWorldExcavationExStage", "LavaWorldFenceLiftExStage", "LavaWorldHomeStage", "LavaWorldIslandZone", "LavaWorldShopStage", "LavaWorldTimerAthletic000Zone", "LavaWorldTimerAthletic001Zone", "LavaWorldTreasureStage", "LavaWorldUpDownExStage", "LavaWorldUpDownYoshiExStage", "Lift2DExStage", "MeganeLiftExStage", "MoonAthleticExStage", "MoonWorldBasement000Zone", "MoonWorldBasement001Zone", "MoonWorldBasement002Zone", "MoonWorldBasement003Zone", "MoonWorldBasement004Zone", "MoonWorldBasementStage", "MoonWorldCaptureParadeBullZone", "MoonWorldCaptureParadeKillerZone", "MoonWorldCaptureParadeLavaPillarZone", "MoonWorldCaptureParadeLiftZone", "MoonWorldCaptureParadeMeganeZone", "MoonWorldCaptureParadeStage", "MoonWorldHome2DZone", "MoonWorldHomeStage", "MoonWorldKoopa1Stage", "MoonWorldKoopa2Stage", "MoonWorldShopRoom", "MoonWorldSphinxRoom", "MoonWorldWeddingRoom2Stage", "MoonWorldWeddingRoomStage", "MoonWorldWeddingRoomZone", "Note2D3DRoomExStage", "PackunPoisonExStage", "PackunPoisonNoCapExStage", "PeachWorldCastleStage", "PeachWorldCostumeStage", "PeachWorldHomeStage", "PeachWorldPictureBossForestStage", "PeachWorldPictureBossKnuckleStage", "PeachWorldPictureBossMagmaStage", "PeachWorldPictureBossRaidStage", "PeachWorldPictureGiantWanderBossStage", "PeachWorldPictureMofumofuStage", "PeachWorldPictureRoomDokanZone", "PeachWorldPictureRoomZone", "PeachWorldShopStage", "PoisonWaveExStage", "PoleGrabCeilExStage", "PoleKillerExStage", "PushBlockExStage", "RadioControlExStage", "RailCollisionExStage", "ReflectBombExStage", "RevengeBossKnuckleStage", "RevengeBossMagmaStage", "RevengeBossRaidStage", "RevengeForestBossStage", "RevengeGiantWanderBossStage", "RevengeMofumofuStage", "RocketFlowerExStage", "RollingExStage", "SandWorldCostumeStage", "SandWorldHomeStage", "SandWorldHomeTownZone", "SandWorldKillerExStage", "SandWorldKillerTowerZone", "SandWorldMeganeExStage", "SandWorldPressExStage", "SandWorldPyramid000Stage", "SandWorldPyramid001Stage", "SandWorldRotateExStage", "SandWorldSecretStage", "SandWorldShopStage", "SandWorldSlotStage", "SandWorldSphinxExStage", "SandWorldUnderground000Stage", "SandWorldUnderground001Stage", "SandWorldVibrationStage", "SeaWorld2DLargeZone", "SeaWorld2DSmallZone", "SeaWorldBeachVolleyBallZone", "SeaWorldBottomHollowZone", "SeaWorldCostumeStage", "SeaWorldCoveCaveZone", "SeaWorldDamageBallZone", "SeaWorldHomeStage", "SeaWorldLavaZone", "SeaWorldLighthouseZone", "SeaWorldLongReefZone", "SeaWorldSecretStage", "SeaWorldSneakingManStage", "SeaWorldSphinxQuizZone", "SeaWorldUnderGlassZone", "SeaWorldUtsuboCaveStage", "SeaWorldUtsuboDenZone", "SeaWorldVibrationStage", "SeaWorldWallCaveCenterZone", "SeaWorldWallCaveWestZone", "SenobiTowerExStage", "SenobiTowerYoshiExStage", "ShootingCityExStage", "ShootingCityYoshiExStage", "ShootingElevatorExStage", "SkyWorldCastleZone", "SkyWorldCloudBonusExStage", "SkyWorldCostumeStage", "SkyWorldHomeStage", "SkyWorldShopStage", "SkyWorldTreasureStage", "SkyWorldWallZone", "SnowWorldBalconyZone", "SnowWorldByugoZone", "SnowWorldCloudBonusExStage", "SnowWorldCostumeStage", "SnowWorldGabuzouZone", "SnowWorldHomeStage", "SnowWorldIcicleZone", "SnowWorldLobby000Stage", "SnowWorldLobby001Stage", "SnowWorldLobbyExStage", "SnowWorldRace000Stage", "SnowWorldRace001Stage", "SnowWorldRaceCircuitZone", "SnowWorldRaceExStage", "SnowWorldRaceExZone", "SnowWorldRaceFlagZone", "SnowWorldRaceGroundZone", "SnowWorldRaceHardExStage", "SnowWorldRaceObjectZone", "SnowWorldRaceTutorialStage", "SnowWorldShopStage", "SnowWorldTownStage", "SnowWorldTownZone", "Special1WorldHomeStage", "Special1WorldTowerBombTailStage", "Special1WorldTowerCapThrowerStage", "Special1WorldTowerFireBlowerStage", "Special1WorldTowerRoomZone", "Special1WorldTowerStackerStage", "Special2WorldCloudStage", "Special2WorldHomeStage", "Special2WorldKoopaStage", "Special2WorldLavaStage", "StaffRollMoonRockDemo", "SwingSteelExStage", "Theater2DExStage", "TogezoRotateExStage", "TrampolineWallCatchExStage", "TrexBikeExStage", "TrexPoppunExStage", "TsukkunClimbExStage", "TsukkunRotateExStage", "WanwanClashExStage", "WaterTubeExStage", "WaterValleyExStage", "WaterfallWorldHomeStage", "WindBlowExStage", "WorldMapStage", "YoshiCloudExStage"];
@@ -276,10 +280,10 @@ function sendPacket(packet) {
   });
 }
 
-async function sendPackets(packets) {
+async function sendPackets(packets, delay = 20) {
   for (const packet of packets) {
     await sendPacket(packet);
-    await new Promise(resolve => setTimeout(resolve, 32));
+    await new Promise(resolve => setTimeout(resolve, delay)); // Delay between packets in ms
   }
 }
 
@@ -360,7 +364,7 @@ app.get('/client-status', (req, res) => {
 });
 
 // API endpoint for executing commands
-async function executeCommand(command, params) {
+async function executeCommand(command, params, delay = 32) {
   if (!clientAddress) {
     throw new Error('No Switch client connected');
   }
@@ -503,7 +507,7 @@ async function executeCommand(command, params) {
 
   // Send packets if any
   if (packets.length > 0) {
-    await sendPackets(packets);
+    await sendPackets(packets, delay);
   }
 
   return result;
@@ -540,7 +544,7 @@ app.post('/api/execute', async (req, res) => {
 // Queue multiple commands endpoint
 app.post('/api/queue', async (req, res) => {
   try {
-    const { commands } = req.body;
+    const { commands, delay } = req.body;
 
     if (!Array.isArray(commands) || commands.length === 0) {
       return res.status(400).json({
@@ -551,6 +555,7 @@ app.post('/api/queue', async (req, res) => {
 
     const results = [];
     const errors = [];
+    const packetDelay = typeof delay === 'number' ? delay : 20;
 
     for (let i = 0; i < commands.length; i++) {
       const { command, params = {} } = commands[i];
@@ -565,7 +570,7 @@ app.post('/api/queue', async (req, res) => {
       }
 
       try {
-        const result = await executeCommand(command, params);
+        const result = await executeCommand(command, params, packetDelay);
         results.push({
           index: i,
           success: true,
@@ -793,12 +798,57 @@ function getHTML() {
       margin-bottom: 30px;
       padding-bottom: 20px;
       border-bottom: 2px solid #21262d;
+      position: relative;
     }
-    
+
     h1 {
       color: #58a6ff;
       font-size: 2em;
       margin-bottom: 10px;
+    }
+
+    .hamburger {
+      position: absolute;
+      top: 0;
+      right: 0;
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #c9d1d9;
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s;
+    }
+
+    .hamburger:hover {
+      background: #30363d;
+      border-color: #58a6ff;
+    }
+
+    .hamburger span {
+      display: block;
+      width: 20px;
+      height: 2px;
+      background: #c9d1d9;
+      transition: all 0.3s;
+    }
+
+    .hamburger.active span:nth-child(1) {
+      transform: rotate(45deg) translate(5px, 5px);
+    }
+
+    .hamburger.active span:nth-child(2) {
+      opacity: 0;
+    }
+
+    .hamburger.active span:nth-child(3) {
+      transform: rotate(-45deg) translate(7px, -7px);
     }
     
     .status {
@@ -1067,11 +1117,239 @@ function getHTML() {
     .log-entry.error {
       color: #f85149;
     }
+
+    /* Sidebar styles */
+    .sidebar-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 2000;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .sidebar-overlay.active {
+      display: block;
+      opacity: 1;
+    }
+
+    .sidebar {
+      position: fixed;
+      top: 0;
+      right: -600px;
+      width: 90%;
+      max-width: 600px;
+      height: 100%;
+      background: #161b22;
+      border-left: 2px solid #30363d;
+      z-index: 2001;
+      transition: right 0.3s ease;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar.active {
+      right: 0;
+    }
+
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 2px solid #21262d;
+      background: #0d1117;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .sidebar-header h2 {
+      color: #58a6ff;
+      font-size: 1.5em;
+      margin: 0;
+    }
+
+    .sidebar-content {
+      padding: 20px;
+      flex: 1;
+    }
+
+    .option-tree {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .option-item {
+      margin: 8px 0;
+    }
+
+    .option-page {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .option-page-header {
+      padding: 12px 15px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .option-page-header:hover {
+      background: #161b22;
+    }
+
+    .option-page-header.expanded {
+      background: #1f6feb;
+      color: #fff;
+    }
+
+    .option-page-name {
+      font-weight: bold;
+      color: #58a6ff;
+    }
+
+    .option-page-header.expanded .option-page-name {
+      color: #fff;
+    }
+
+    .option-page-arrow {
+      font-size: 0.8em;
+      transition: transform 0.2s;
+    }
+
+    .option-page-header.expanded .option-page-arrow {
+      transform: rotate(90deg);
+    }
+
+    .option-page-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      background: #0d1117;
+    }
+
+    .option-page-content.expanded {
+      max-height: 2000px;
+      padding: 10px;
+    }
+
+    .option-action {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 15px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      margin: 8px 0;
+    }
+
+    .option-action-name {
+      color: #c9d1d9;
+      flex: 1;
+    }
+
+    .option-action-btn {
+      background: #238636;
+      color: #fff;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.9em;
+      font-weight: bold;
+      transition: all 0.2s;
+      white-space: nowrap;
+      margin-left: 10px;
+    }
+
+    .option-action-btn:hover:not(:disabled) {
+      background: #2ea043;
+    }
+
+    .option-action-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .option-action-btn.function {
+      background: #1f6feb;
+    }
+
+    .option-action-btn.function:hover:not(:disabled) {
+      background: #388bfd;
+    }
+
+    .nested-options {
+      margin-left: 15px;
+      padding-left: 10px;
+      border-left: 2px solid #21262d;
+    }
+
+    .sidebar-info {
+      padding: 15px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 0.85em;
+      color: #8b949e;
+      line-height: 1.5;
+    }
+
+    .sidebar-info strong {
+      color: #58a6ff;
+    }
+
+    .delay-control {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #30363d;
+    }
+
+    .delay-control label {
+      display: block;
+      color: #8b949e;
+      font-size: 0.85em;
+      margin-bottom: 5px;
+    }
+
+    .delay-control input {
+      width: 100%;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      color: #c9d1d9;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.9em;
+    }
+
+    .delay-control input:focus {
+      outline: none;
+      border-color: #58a6ff;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
+      <div class="hamburger" onclick="toggleSidebar()">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
       <h1>🎮 SMO Practice Server</h1>
       <div id="status" class="status disconnected">Disconnected</div>
     </header>
@@ -1112,7 +1390,27 @@ function getHTML() {
       </div>
     </div>
   </div>
-  
+
+  <!-- Sidebar for Client Config -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>⚙️ Client Config</h2>
+      <div class="delay-control">
+        <label for="packetDelay">Packet Delay (ms)</label>
+        <input type="number" id="packetDelay" value="20" min="0" max="1000" step="1">
+      </div>
+    </div>
+    <div class="sidebar-content">
+      <div class="sidebar-info">
+        <strong>Note:</strong> These options control the in-game practice mod menu.
+        The game does not report current option states, so option status cannot be displayed here.
+        Commands are sent as D-Pad navigation sequences.
+      </div>
+      <ul class="option-tree" id="optionTree"></ul>
+    </div>
+  </div>
+
   <!-- Modal for command parameters -->
   <div id="modal" class="modal">
     <div class="modal-content">
@@ -1444,6 +1742,12 @@ function getHTML() {
       buttons.forEach(btn => {
         btn.disabled = !isConnected;
       });
+
+      // Also update sidebar option buttons
+      const optionButtons = document.querySelectorAll('.option-action-btn');
+      optionButtons.forEach(btn => {
+        btn.disabled = !isConnected;
+      });
     }
     
     // TSV Modal functions
@@ -1488,9 +1792,176 @@ function getHTML() {
     // Stage list for datalist
     const STAGES = ["AnimalChaseExStage", "BikeSteelExStage", "BikeSteelNoCapExStage", "BossRaidWorldHomeStage", "BullRunExStage", "ByugoPuzzleExStage", "CapAppearExStage", "CapAppearLavaLiftExStage", "CapRotatePackunExStage", "CapWorldHomeStage", "CapWorldTowerStage", "CityPeopleRoadStage", "CityWorld2DSign000Zone", "CityWorld2DSign001Zone", "CityWorld2DSign002Zone", "CityWorld2DSign003Zone", "CityWorld2DSign004Zone", "CityWorld2DSign005Zone", "CityWorld2DSign006Zone", "CityWorldFactory01Zone", "CityWorldFactoryStage", "CityWorldHomeStage", "CityWorldMainTowerStage", "CityWorldSandSlotStage", "CityWorldShop01Stage", "CityWorldTimerAthletic000Zone", "CityWorldTimerAthletic002Zone", "CityWorldTimerAthletic003Zone", "ClashWorldHomeStage", "ClashWorldShopStage", "CloudExStage", "CloudWorldHomeStage", "Cube2DExStage", "DemoBossRaidAttackStage", "DemoChangeWorldBossRaidAttackStage", "DemoChangeWorldFindKoopaShipStage", "DemoChangeWorldStage", "DemoCrashHomeFallStage", "DemoCrashHomeStage", "DemoEndingStage", "DemoHackFirstStage", "DemoHackKoopaStage", "DemoLavaWorldScenario1EndStage", "DemoMeetCapNpcSubStage", "DemoOpeningStage", "DemoStartWorldWaterfallStage", "DemoTakeOffKoopaForMoonStage", "DemoWorldMoveBackwardArriveStage", "DemoWorldMoveBackwardStage", "DemoWorldMoveForwardArriveStage", "DemoWorldMoveForwardFirstStage", "DemoWorldMoveForwardStage", "DemoWorldMoveMoonBackwardStage", "DemoWorldMoveMoonForwardFirstStage", "DemoWorldMoveMoonForwardStage", "DemoWorldWarpHoleStage", "DonsukeExStage", "DotHardExStage", "DotTowerExStage", "ElectricWireExStage", "FastenerExStage", "FogMountainExStage", "ForestWorld2DRoadZone", "ForestWorldAthleticZone", "ForestWorldBonusStage", "ForestWorldBossStage", "ForestWorldCloudBonusExStage", "ForestWorldHomeStage", "ForestWorldTimerAthletic001Zone", "ForestWorldTowerStage", "ForestWorldWaterExStage", "ForestWorldWoodsCostumeStage", "ForestWorldWoodsStage", "ForestWorldWoodsTreasureStage", "ForkExStage", "FrogPoisonExStage", "FrogSearchExStage", "FukuwaraiKuriboStage", "FukuwaraiMarioStage", "GabuzouClockExStage", "Galaxy2DExStage", "GotogotonExStage", "HomeShipInsideStage", "IceWalkerExStage", "IceWaterBlockExStage", "IceWaterDashExStage", "ImomuPoisonExStage", "JangoExStage", "JizoSwitchExStage", "KaronWingTowerStage", "KillerRailCollisionExStage", "KillerRoadExStage", "KillerRoadNoCapExStage", "LakeWorld2DZone", "LakeWorldHomeStage", "LakeWorldShopStage", "LakeWorldTimerAthletic000Zone", "LakeWorldTownZone", "LavaBonus1Zone", "LavaWorldBubbleLaneExStage", "LavaWorldCaveZone", "LavaWorldClockExStage", "LavaWorldCostumeStage", "LavaWorldExcavationExStage", "LavaWorldFenceLiftExStage", "LavaWorldHomeStage", "LavaWorldIslandZone", "LavaWorldShopStage", "LavaWorldTimerAthletic000Zone", "LavaWorldTimerAthletic001Zone", "LavaWorldTreasureStage", "LavaWorldUpDownExStage", "LavaWorldUpDownYoshiExStage", "Lift2DExStage", "MeganeLiftExStage", "MoonAthleticExStage", "MoonWorldBasement000Zone", "MoonWorldBasement001Zone", "MoonWorldBasement002Zone", "MoonWorldBasement003Zone", "MoonWorldBasement004Zone", "MoonWorldBasementStage", "MoonWorldCaptureParadeBullZone", "MoonWorldCaptureParadeKillerZone", "MoonWorldCaptureParadeLavaPillarZone", "MoonWorldCaptureParadeLiftZone", "MoonWorldCaptureParadeMeganeZone", "MoonWorldCaptureParadeStage", "MoonWorldHome2DZone", "MoonWorldHomeStage", "MoonWorldKoopa1Stage", "MoonWorldKoopa2Stage", "MoonWorldShopRoom", "MoonWorldSphinxRoom", "MoonWorldWeddingRoom2Stage", "MoonWorldWeddingRoomStage", "MoonWorldWeddingRoomZone", "Note2D3DRoomExStage", "PackunPoisonExStage", "PackunPoisonNoCapExStage", "PeachWorldCastleStage", "PeachWorldCostumeStage", "PeachWorldHomeStage", "PeachWorldPictureBossForestStage", "PeachWorldPictureBossKnuckleStage", "PeachWorldPictureBossMagmaStage", "PeachWorldPictureBossRaidStage", "PeachWorldPictureGiantWanderBossStage", "PeachWorldPictureMofumofuStage", "PeachWorldPictureRoomDokanZone", "PeachWorldPictureRoomZone", "PeachWorldShopStage", "PoisonWaveExStage", "PoleGrabCeilExStage", "PoleKillerExStage", "PushBlockExStage", "RadioControlExStage", "RailCollisionExStage", "ReflectBombExStage", "RevengeBossKnuckleStage", "RevengeBossMagmaStage", "RevengeBossRaidStage", "RevengeForestBossStage", "RevengeGiantWanderBossStage", "RevengeMofumofuStage", "RocketFlowerExStage", "RollingExStage", "SandWorldCostumeStage", "SandWorldHomeStage", "SandWorldHomeTownZone", "SandWorldKillerExStage", "SandWorldKillerTowerZone", "SandWorldMeganeExStage", "SandWorldPressExStage", "SandWorldPyramid000Stage", "SandWorldPyramid001Stage", "SandWorldRotateExStage", "SandWorldSecretStage", "SandWorldShopStage", "SandWorldSlotStage", "SandWorldSphinxExStage", "SandWorldUnderground000Stage", "SandWorldUnderground001Stage", "SandWorldVibrationStage", "SeaWorld2DLargeZone", "SeaWorld2DSmallZone", "SeaWorldBeachVolleyBallZone", "SeaWorldBottomHollowZone", "SeaWorldCostumeStage", "SeaWorldCoveCaveZone", "SeaWorldDamageBallZone", "SeaWorldHomeStage", "SeaWorldLavaZone", "SeaWorldLighthouseZone", "SeaWorldLongReefZone", "SeaWorldSecretStage", "SeaWorldSneakingManStage", "SeaWorldSphinxQuizZone", "SeaWorldUnderGlassZone", "SeaWorldUtsuboCaveStage", "SeaWorldUtsuboDenZone", "SeaWorldVibrationStage", "SeaWorldWallCaveCenterZone", "SeaWorldWallCaveWestZone", "SenobiTowerExStage", "SenobiTowerYoshiExStage", "ShootingCityExStage", "ShootingCityYoshiExStage", "ShootingElevatorExStage", "SkyWorldCastleZone", "SkyWorldCloudBonusExStage", "SkyWorldCostumeStage", "SkyWorldHomeStage", "SkyWorldShopStage", "SkyWorldTreasureStage", "SkyWorldWallZone", "SnowWorldBalconyZone", "SnowWorldByugoZone", "SnowWorldCloudBonusExStage", "SnowWorldCostumeStage", "SnowWorldGabuzouZone", "SnowWorldHomeStage", "SnowWorldIcicleZone", "SnowWorldLobby000Stage", "SnowWorldLobby001Stage", "SnowWorldLobbyExStage", "SnowWorldRace000Stage", "SnowWorldRace001Stage", "SnowWorldRaceCircuitZone", "SnowWorldRaceExStage", "SnowWorldRaceExZone", "SnowWorldRaceFlagZone", "SnowWorldRaceGroundZone", "SnowWorldRaceHardExStage", "SnowWorldRaceObjectZone", "SnowWorldRaceTutorialStage", "SnowWorldShopStage", "SnowWorldTownStage", "SnowWorldTownZone", "Special1WorldHomeStage", "Special1WorldTowerBombTailStage", "Special1WorldTowerCapThrowerStage", "Special1WorldTowerFireBlowerStage", "Special1WorldTowerRoomZone", "Special1WorldTowerStackerStage", "Special2WorldCloudStage", "Special2WorldHomeStage", "Special2WorldKoopaStage", "Special2WorldLavaStage", "StaffRollMoonRockDemo", "SwingSteelExStage", "Theater2DExStage", "TogezoRotateExStage", "TrampolineWallCatchExStage", "TrexBikeExStage", "TrexPoppunExStage", "TsukkunClimbExStage", "TsukkunRotateExStage", "WanwanClashExStage", "WaterTubeExStage", "WaterValleyExStage", "WaterfallWorldHomeStage", "WindBlowExStage", "WorldMapStage", "YoshiCloudExStage"];
 
+    // Option pages configuration
+    const OPTION_PAGES = ${JSON.stringify(optionPages)};
+
+    // Sidebar functions
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const hamburger = document.querySelector('.hamburger');
+
+      sidebar.classList.toggle('active');
+      overlay.classList.toggle('active');
+      hamburger.classList.toggle('active');
+    }
+
+    function closeSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const hamburger = document.querySelector('.hamburger');
+
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      hamburger.classList.remove('active');
+    }
+
+    // Render option tree recursively
+    function renderOptionTree(items, parentPath = []) {
+      let html = '<ul class="option-tree">';
+
+      // Sort items by index
+      const sortedItems = [...items].sort((a, b) => a.index - b.index);
+
+      for (const item of sortedItems) {
+        const currentPath = [...parentPath, item];
+
+        if (item.type === 'page') {
+          // This is a nested page
+          const pageId = currentPath.map(p => p.index).join('_');
+          html += \`
+            <li class="option-item">
+              <div class="option-page">
+                <div class="option-page-header" onclick="toggleOptionPage('\${pageId}')">
+                  <span class="option-page-name">\${item.name}</span>
+                  <span class="option-page-arrow">▶</span>
+                </div>
+                <div class="option-page-content" id="page_\${pageId}">
+                  <div class="nested-options">
+                    \${item.nest ? renderOptionTree(item.nest, currentPath) : ''}
+                  </div>
+                </div>
+              </div>
+            </li>
+          \`;
+        } else if (item.type === 'bool' || item.type === 'function') {
+          // This is an actionable option
+          const buttonText = item.type === 'function' ? 'Execute' : 'Toggle';
+          const buttonClass = item.type === 'function' ? 'function' : '';
+          html += \`
+            <li class="option-item">
+              <div class="option-action">
+                <span class="option-action-name">\${item.name}</span>
+                <button class="option-action-btn \${buttonClass}"
+                        onclick="executeOption(\${JSON.stringify(currentPath).replace(/"/g, '&quot;')})"
+                        \${!isConnected ? 'disabled' : ''}>
+                  \${buttonText}
+                </button>
+              </div>
+            </li>
+          \`;
+        }
+      }
+
+      html += '</ul>';
+      return html;
+    }
+
+    function toggleOptionPage(pageId) {
+      const header = event.target.closest('.option-page-header');
+      const content = document.getElementById('page_' + pageId);
+
+      header.classList.toggle('expanded');
+      content.classList.toggle('expanded');
+    }
+
+    // Generate D-Pad navigation commands for an option
+    function generateNavigationSequence(optionPath) {
+      const commands = [];
+
+      // Step 1: Navigate back to the root page
+      // We need to ensure we're at the first page, regardless of where the user currently is.
+      // The strategy: Select index 0 (which is either a back button or credits), then press
+      // Right enough times to navigate back through all possible nested pages.
+
+      // Start by selecting index 0
+      commands.push({ command: 'select', params: { index: 0 } });
+
+      // Use a conservative number of back presses to guarantee reaching the root
+      // 5 sequences should be enough for the menu depth
+      const CONSERVATIVE_BACK_PRESSES = 5;
+
+      for (let i = 0; i < CONSERVATIVE_BACK_PRESSES; i++) {
+        commands.push({ command: 'right' });
+      }
+
+      // Step 2: Navigate to the target option
+      for (let i = 0; i < optionPath.length; i++) {
+        const item = optionPath[i];
+
+        // The JSON indices are already 0-based and account for the back button at index 0
+        commands.push({ command: 'select', params: { index: item.index } });
+
+        // Press Right to either enter the page or toggle/execute the option
+        commands.push({ command: 'right' });
+      }
+
+      // Step 3: Navigate back to the root page
+      // Count the number of pages in the path to know how many levels to go back
+      const pageDepth = optionPath.filter(item => item.type === 'page').length;
+
+      for (let i = 0; i < pageDepth; i++) {
+        commands.push({ command: 'select', params: { index: 0 } });
+        commands.push({ command: 'right' });
+      }
+
+      return commands;
+    }
+
+    // Execute an option by sending the navigation sequence
+    async function executeOption(optionPath) {
+      if (!isConnected) {
+        addLog('Error: No Switch client connected', 'error');
+        return;
+      }
+
+      try {
+        const commands = generateNavigationSequence(optionPath);
+        const optionName = optionPath[optionPath.length - 1].name;
+        const delay = parseInt(document.getElementById('packetDelay').value) || 20;
+
+        addLog(\`Executing: \${optionName}\`);
+        addLog(\`Sending \${commands.length} D-Pad commands: \${commands.map(c => c.command + (c.params ? '(' + c.params.index + ')' : '')).join(', ')}\`);
+
+        // Send commands via the API queue endpoint
+        const res = await fetch('/api/queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ commands, delay })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          addLog(\`Successfully executed: \${optionName}\`, 'success');
+        } else {
+          addLog(\`Failed to execute: \${optionName} - \${data.errors?.[0]?.error || 'Unknown error'}\`, 'error');
+        }
+      } catch (err) {
+        addLog('Execution failed: ' + err.message, 'error');
+      }
+    }
+
+    // Initialize sidebar
+    function initializeSidebar() {
+      const optionTree = document.getElementById('optionTree');
+      optionTree.innerHTML = renderOptionTree(OPTION_PAGES);
+    }
+
     // Initialize
     updateButtonStates();
     refreshScripts();
+    initializeSidebar();
   </script>
 </body>
 </html>`;

@@ -1,0 +1,279 @@
+[
+  {
+    "index": 1,
+    "name": "Options",
+    "type": "page",
+    "nest": [
+      {
+        "index": 1,
+        "name": "Movement",
+        "type": "page",
+        "nest": [
+          {
+            "index": 1,
+            "name": "Teleport",
+            "type": "page",
+            "nest": [
+              {
+                "index": 1,
+                "name": "Enable Teleport",
+                "type": "bool"
+              },
+              {
+                "index": 5,
+                "name": "Disable Teleport Puppet",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "index": 2,
+            "name": "Moon Jump",
+            "type": "page",
+            "nest": [
+              {
+                "index": 1,
+                "name": "Toggle Moon Jump",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "index": 3,
+            "name": "Noclip",
+            "type": "bool"
+          },
+          {
+            "index": 4,
+            "name": "X/Y Motion Rolls",
+            "type": "bool"
+          },
+          {
+            "index": 5,
+            "name": "Infinite Cap Bounces",
+            "type": "bool"
+          },
+          {
+            "index": 6,
+            "name": "Infinite Rainbow Spins",
+            "type": "bool"
+          },
+          {
+            "index": 7,
+            "name": "Cap Bounce After Wall Jump",
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "index": 2,
+        "name": "Saving",
+        "type": "page",
+        "nest": [
+          {
+            "index": 1,
+            "name": "Disable Saving Moons",
+            "type": "bool"
+          },
+          {
+            "index": 2,
+            "name": "Reactivate Moons",
+            "type": "bool"
+          },
+          {
+            "index": 3,
+            "name": "Disable Autosaving",
+            "type": "bool"
+          },
+          {
+            "index": 4,
+            "name": "Allow Loading Current File",
+            "type": "bool"
+          },
+          {
+            "index": 5,
+            "name": "Disable Load File Confirmation",
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "index": 3,
+        "name": "Renderer",
+        "type": "page",
+        "nest": [
+          {
+            "index": 1,
+            "name": "Enable Game rendering",
+            "type": "bool",
+            "default": true
+          },
+          {
+            "index": 2,
+            "name": "Show Mario's position",
+            "type": "bool"
+          },
+          {
+            "index": 3,
+            "name": "Show origin",
+            "type": "bool"
+          },
+          {
+            "index": 4,
+            "name": "Show current AreaObj",
+            "type": "bool"
+          },
+          {
+            "index": 5,
+            "name": "Show closest area point",
+            "type": "bool"
+          },
+          {
+            "index": 6,
+            "name": "Show current AreaObjGroup",
+            "type": "bool"
+          },
+          {
+            "index": 7,
+            "name": "Show floor HitInfo",
+            "type": "bool"
+          },
+          {
+            "index": 8,
+            "name": "Show wall HitInfo",
+            "type": "bool"
+          },
+          {
+            "index": 9,
+            "name": "Show ceiling HitInfo",
+            "type": "bool"
+          },
+          {
+            "index": 10,
+            "name": "Show HitInfo array",
+            "type": "bool"
+          },
+          {
+            "index": 11,
+            "name": "Show CRC position",
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "index": 4,
+        "name": "Disable Losing Health",
+        "type": "bool"
+      },
+      {
+        "index": 5,
+        "name": "Always Enable Warps",
+        "type": "bool"
+      },
+      {
+        "index": 6,
+        "name": "Cloud Kingdom Bowser Skip",
+        "type": "bool"
+      },
+      {
+        "index": 7,
+        "name": "Disable Moon Requirement",
+        "type": "bool"
+      },
+      {
+        "index": 8,
+        "name": "Enable Moe-Eye Vision",
+        "type": "bool"
+      },
+      {
+        "index": 9,
+        "name": "Override Bowser Hat Randomizer",
+        "type": "bool"
+      },
+      {
+        "index": 11,
+        "name": "Disable music",
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "index": 3,
+    "name": "Miscellaneous",
+    "type": "page",
+    "nest": [
+      {
+        "index": 1,
+        "name": "Kill Mario",
+        "type": "function"
+      },
+      {
+        "index": 2,
+        "name": "Damage Mario",
+        "type": "function"
+      },
+      {
+        "index": 3,
+        "name": "Life Up Heart",
+        "type": "function"
+      },
+      {
+        "index": 4,
+        "name": "Heal Mario",
+        "type": "function"
+      },
+      {
+        "index": 5,
+        "name": "Remove Cappy",
+        "type": "function"
+      },
+      {
+        "index": 6,
+        "name": "Invincibility Star",
+        "type": "function"
+      },
+      {
+        "index": 7,
+        "name": "Add 1000 coins",
+        "type": "function"
+      },
+      {
+        "index": 8,
+        "name": "Add -1000 coins",
+        "type": "function"
+      },
+      {
+        "index": 10,
+        "name": "Reload Stage",
+        "type": "function"
+      },
+      {
+        "index": 11,
+        "name": "Reload Scene",
+        "type": "function"
+      },
+      {
+        "index": 12,
+        "name": "Previous scene",
+        "type": "function"
+      },
+      {
+        "index": 13,
+        "name": "Reload Scene (D-UP)",
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "index": 5,
+    "name": "TAS",
+    "type": "page",
+    "nest": [
+      {
+        "index": 2,
+        "name": "Old Motion Mod",
+        "type": "bool"
+      }
+    ]
+  }
+]
