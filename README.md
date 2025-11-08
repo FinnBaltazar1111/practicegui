@@ -30,6 +30,9 @@
 
 From here, launch Super Mario Odyssey. Open a save file and use the D-Pad to navigate to `TAS`, and press D-Pad Right. Navigate to `Connect to server`, and press D-Pad Right. The GUI should display a connection and the buttons will unlock.
 
+## Configuring user mod options
+The server dashboard can now configure options for the mod that are usually set in-game via the menu. This functionality requires a custom version of the mod, which you can get [here](https://github.com/FinnBaltazar1111/smo-practice). (Until I get prebuilds set up you'll need to build it yourself; it's pretty straightforward.)
+
 ## Planned updates
 In order of priority:
 * Integrate with Google Sheets to allow directly loading TSV scripts

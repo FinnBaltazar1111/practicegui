@@ -20,7 +20,9 @@ const OutPacketType = {
   PlayerGo: 4,
   ChangePage: 5,
   UINavigation: 6,
-  PlayerScriptState: 7
+  PlayerScriptState: 7,
+  PlayerSetOptions: 8,
+  PlayerDoAction: 9
 };
 
 const InPacketType = {
@@ -35,7 +37,91 @@ let udpServer = null;
 let uploadedScripts = new Map(); // filename -> script content
 
 // Load option pages configuration
-const optionPages = JSON.parse(fs.readFileSync(path.join(__dirname, 'optionpages.json'), 'utf8'));
+// Practice mod options and actions configuration (organized to match in-game menu structure)
+const practiceOptions = {
+  categories: [
+    {
+      name: 'Movement',
+      options: [
+        { name: 'noclipEnabled', label: 'Noclip' },
+        { name: 'buttonMotionRoll', label: 'X/Y Motion Rolls' },
+        { name: 'repeatCapBounce', label: 'Infinite Cap Bounces' },
+        { name: 'repeatRainbowSpin', label: 'Infinite Rainbow Spins' },
+        { name: 'wallJumpCapBounce', label: 'Cap Bounce After Wall Jump' }
+      ],
+      subcategories: [
+        {
+          name: 'Teleport',
+          options: [
+            { name: 'teleportEnabled', label: 'Teleport' },
+            { name: 'disablePuppet', label: 'Disable Teleport Puppet' }
+          ]
+        },
+        {
+          name: 'Moon Jump',
+          options: [
+            { name: 'moonJump', label: 'Moon Jump' }
+          ]
+        }
+      ]
+    },
+    {
+      name: 'Saving',
+      options: [
+        { name: 'shineRefresh', label: 'Disable Saving Moons' },
+        { name: 'gotShineRefresh', label: 'Reactivate Moons' },
+        { name: 'disableAutoSave', label: 'Disable Autosaving' },
+        { name: 'loadCurrentFile', label: 'Allow Loading Current File' },
+        { name: 'loadFileConfirm', label: 'Disable Load File Confirmation' }
+      ]
+    },
+    {
+      name: 'Other Options',
+      options: [
+        { name: 'noDamageLife', label: 'Disable Losing Health' },
+        { name: 'alwaysWarp', label: 'Always Enable Warps' },
+        { name: 'skipBowser', label: 'Cloud Kingdom Bowser Skip' },
+        { name: 'disableShineNumUnlock', label: 'Disable Moon Requirement' },
+        { name: 'showOddSpace', label: 'Enable Moe-Eye Vision' },
+        { name: 'overrideBowserHat0', label: 'Override Bowser Hat Randomizer' },
+        { name: 'muteBgm', label: 'Disable music' },
+        { name: 'reloadDUP', label: 'Reload Scene (D-UP)' },
+        { name: 'lockHack', label: 'Lock Current Capture' },
+        { name: 'lockCarry', label: 'Lock Current Item' }
+      ]
+    },
+    {
+      name: 'Renderer',
+      options: [
+        { name: 'shouldRender', label: 'Enable Game rendering' },
+        { name: 'showPlayer', label: "Show Mario's position" },
+        { name: 'showAxis', label: 'Show origin' },
+        { name: 'showArea', label: 'Show current AreaObj' },
+        { name: 'showAreaPoint', label: 'Show closest area point' },
+        { name: 'showAreaGroup', label: 'Show current AreaObjGroup' },
+        { name: 'showHitInfoFloor', label: 'Show floor HitInfo' },
+        { name: 'showHitInfoWall', label: 'Show wall HitInfo' },
+        { name: 'showHitInfoCeil', label: 'Show ceiling HitInfo' },
+        { name: 'showHitInfoArray', label: 'Show HitInfo array' },
+        { name: 'showCRC', label: 'Show CRC position' }
+      ]
+    },
+    {
+      name: 'PipeMaze Randomness',
+      options: [
+        { name: 'pipeMazeOverride', label: 'Enable Override' }
+      ]
+    }
+  ],
+  actions: [
+    { name: 'killMario', label: 'Kill Mario' },
+    { name: 'damageMario', label: 'Damage Mario' },
+    { name: 'lifeUpHeart', label: 'Life Up Heart' },
+    { name: 'healMario', label: 'Heal Mario' },
+    { name: 'removeCappy', label: 'Remove Cappy' },
+    { name: 'invincibilityStar', label: 'Invincibility Star' }
+  ]
+};
 
 // Stage list
 const STAGES = ["AnimalChaseExStage", "BikeSteelExStage", "BikeSteelNoCapExStage", "BossRaidWorldHomeStage", "BullRunExStage", "ByugoPuzzleExStage", "CapAppearExStage", "CapAppearLavaLiftExStage", "CapRotatePackunExStage", "CapWorldHomeStage", "CapWorldTowerStage", "CityPeopleRoadStage", "CityWorld2DSign000Zone", "CityWorld2DSign001Zone", "CityWorld2DSign002Zone", "CityWorld2DSign003Zone", "CityWorld2DSign004Zone", "CityWorld2DSign005Zone", "CityWorld2DSign006Zone", "CityWorldFactory01Zone", "CityWorldFactoryStage", "CityWorldHomeStage", "CityWorldMainTowerStage", "CityWorldSandSlotStage", "CityWorldShop01Stage", "CityWorldTimerAthletic000Zone", "CityWorldTimerAthletic002Zone", "CityWorldTimerAthletic003Zone", "ClashWorldHomeStage", "ClashWorldShopStage", "CloudExStage", "CloudWorldHomeStage", "Cube2DExStage", "DemoBossRaidAttackStage", "DemoChangeWorldBossRaidAttackStage", "DemoChangeWorldFindKoopaShipStage", "DemoChangeWorldStage", "DemoCrashHomeFallStage", "DemoCrashHomeStage", "DemoEndingStage", "DemoHackFirstStage", "DemoHackKoopaStage", "DemoLavaWorldScenario1EndStage", "DemoMeetCapNpcSubStage", "DemoOpeningStage", "DemoStartWorldWaterfallStage", "DemoTakeOffKoopaForMoonStage", "DemoWorldMoveBackwardArriveStage", "DemoWorldMoveBackwardStage", "DemoWorldMoveForwardArriveStage", "DemoWorldMoveForwardFirstStage", "DemoWorldMoveForwardStage", "DemoWorldMoveMoonBackwardStage", "DemoWorldMoveMoonForwardFirstStage", "DemoWorldMoveMoonForwardStage", "DemoWorldWarpHoleStage", "DonsukeExStage", "DotHardExStage", "DotTowerExStage", "ElectricWireExStage", "FastenerExStage", "FogMountainExStage", "ForestWorld2DRoadZone", "ForestWorldAthleticZone", "ForestWorldBonusStage", "ForestWorldBossStage", "ForestWorldCloudBonusExStage", "ForestWorldHomeStage", "ForestWorldTimerAthletic001Zone", "ForestWorldTowerStage", "ForestWorldWaterExStage", "ForestWorldWoodsCostumeStage", "ForestWorldWoodsStage", "ForestWorldWoodsTreasureStage", "ForkExStage", "FrogPoisonExStage", "FrogSearchExStage", "FukuwaraiKuriboStage", "FukuwaraiMarioStage", "GabuzouClockExStage", "Galaxy2DExStage", "GotogotonExStage", "HomeShipInsideStage", "IceWalkerExStage", "IceWaterBlockExStage", "IceWaterDashExStage", "ImomuPoisonExStage", "JangoExStage", "JizoSwitchExStage", "KaronWingTowerStage", "KillerRailCollisionExStage", "KillerRoadExStage", "KillerRoadNoCapExStage", "LakeWorld2DZone", "LakeWorldHomeStage", "LakeWorldShopStage", "LakeWorldTimerAthletic000Zone", "LakeWorldTownZone", "LavaBonus1Zone", "LavaWorldBubbleLaneExStage", "LavaWorldCaveZone", "LavaWorldClockExStage", "LavaWorldCostumeStage", "LavaWorldExcavationExStage", "LavaWorldFenceLiftExStage", "LavaWorldHomeStage", "LavaWorldIslandZone", "LavaWorldShopStage", "LavaWorldTimerAthletic000Zone", "LavaWorldTimerAthletic001Zone", "LavaWorldTreasureStage", "LavaWorldUpDownExStage", "LavaWorldUpDownYoshiExStage", "Lift2DExStage", "MeganeLiftExStage", "MoonAthleticExStage", "MoonWorldBasement000Zone", "MoonWorldBasement001Zone", "MoonWorldBasement002Zone", "MoonWorldBasement003Zone", "MoonWorldBasement004Zone", "MoonWorldBasementStage", "MoonWorldCaptureParadeBullZone", "MoonWorldCaptureParadeKillerZone", "MoonWorldCaptureParadeLavaPillarZone", "MoonWorldCaptureParadeLiftZone", "MoonWorldCaptureParadeMeganeZone", "MoonWorldCaptureParadeStage", "MoonWorldHome2DZone", "MoonWorldHomeStage", "MoonWorldKoopa1Stage", "MoonWorldKoopa2Stage", "MoonWorldShopRoom", "MoonWorldSphinxRoom", "MoonWorldWeddingRoom2Stage", "MoonWorldWeddingRoomStage", "MoonWorldWeddingRoomZone", "Note2D3DRoomExStage", "PackunPoisonExStage", "PackunPoisonNoCapExStage", "PeachWorldCastleStage", "PeachWorldCostumeStage", "PeachWorldHomeStage", "PeachWorldPictureBossForestStage", "PeachWorldPictureBossKnuckleStage", "PeachWorldPictureBossMagmaStage", "PeachWorldPictureBossRaidStage", "PeachWorldPictureGiantWanderBossStage", "PeachWorldPictureMofumofuStage", "PeachWorldPictureRoomDokanZone", "PeachWorldPictureRoomZone", "PeachWorldShopStage", "PoisonWaveExStage", "PoleGrabCeilExStage", "PoleKillerExStage", "PushBlockExStage", "RadioControlExStage", "RailCollisionExStage", "ReflectBombExStage", "RevengeBossKnuckleStage", "RevengeBossMagmaStage", "RevengeBossRaidStage", "RevengeForestBossStage", "RevengeGiantWanderBossStage", "RevengeMofumofuStage", "RocketFlowerExStage", "RollingExStage", "SandWorldCostumeStage", "SandWorldHomeStage", "SandWorldHomeTownZone", "SandWorldKillerExStage", "SandWorldKillerTowerZone", "SandWorldMeganeExStage", "SandWorldPressExStage", "SandWorldPyramid000Stage", "SandWorldPyramid001Stage", "SandWorldRotateExStage", "SandWorldSecretStage", "SandWorldShopStage", "SandWorldSlotStage", "SandWorldSphinxExStage", "SandWorldUnderground000Stage", "SandWorldUnderground001Stage", "SandWorldVibrationStage", "SeaWorld2DLargeZone", "SeaWorld2DSmallZone", "SeaWorldBeachVolleyBallZone", "SeaWorldBottomHollowZone", "SeaWorldCostumeStage", "SeaWorldCoveCaveZone", "SeaWorldDamageBallZone", "SeaWorldHomeStage", "SeaWorldLavaZone", "SeaWorldLighthouseZone", "SeaWorldLongReefZone", "SeaWorldSecretStage", "SeaWorldSneakingManStage", "SeaWorldSphinxQuizZone", "SeaWorldUnderGlassZone", "SeaWorldUtsuboCaveStage", "SeaWorldUtsuboDenZone", "SeaWorldVibrationStage", "SeaWorldWallCaveCenterZone", "SeaWorldWallCaveWestZone", "SenobiTowerExStage", "SenobiTowerYoshiExStage", "ShootingCityExStage", "ShootingCityYoshiExStage", "ShootingElevatorExStage", "SkyWorldCastleZone", "SkyWorldCloudBonusExStage", "SkyWorldCostumeStage", "SkyWorldHomeStage", "SkyWorldShopStage", "SkyWorldTreasureStage", "SkyWorldWallZone", "SnowWorldBalconyZone", "SnowWorldByugoZone", "SnowWorldCloudBonusExStage", "SnowWorldCostumeStage", "SnowWorldGabuzouZone", "SnowWorldHomeStage", "SnowWorldIcicleZone", "SnowWorldLobby000Stage", "SnowWorldLobby001Stage", "SnowWorldLobbyExStage", "SnowWorldRace000Stage", "SnowWorldRace001Stage", "SnowWorldRaceCircuitZone", "SnowWorldRaceExStage", "SnowWorldRaceExZone", "SnowWorldRaceFlagZone", "SnowWorldRaceGroundZone", "SnowWorldRaceHardExStage", "SnowWorldRaceObjectZone", "SnowWorldRaceTutorialStage", "SnowWorldShopStage", "SnowWorldTownStage", "SnowWorldTownZone", "Special1WorldHomeStage", "Special1WorldTowerBombTailStage", "Special1WorldTowerCapThrowerStage", "Special1WorldTowerFireBlowerStage", "Special1WorldTowerRoomZone", "Special1WorldTowerStackerStage", "Special2WorldCloudStage", "Special2WorldHomeStage", "Special2WorldKoopaStage", "Special2WorldLavaStage", "StaffRollMoonRockDemo", "SwingSteelExStage", "Theater2DExStage", "TogezoRotateExStage", "TrampolineWallCatchExStage", "TrexBikeExStage", "TrexPoppunExStage", "TsukkunClimbExStage", "TsukkunRotateExStage", "WanwanClashExStage", "WaterTubeExStage", "WaterValleyExStage", "WaterfallWorldHomeStage", "WindBlowExStage", "WorldMapStage", "YoshiCloudExStage"];
@@ -109,6 +195,30 @@ function buildUINavigationPacket(direction) {
 
 function buildScriptStatePacket(state) {
   return buildPacket(OutPacketType.PlayerScriptState, Buffer.from([state]));
+}
+
+function buildSetOptionsPacket(options) {
+  // options is an object like { "teleportEnabled": true, "noclipEnabled": false }
+  const optionCount = Object.keys(options).length;
+  const buffers = [Buffer.from([optionCount])];
+
+  for (const [name, value] of Object.entries(options)) {
+    const nameBytes = Buffer.from(name, 'utf8');
+    buffers.push(Buffer.from([nameBytes.length]));
+    buffers.push(nameBytes);
+    buffers.push(Buffer.from([value ? 1 : 0]));
+  }
+
+  return buildPacket(OutPacketType.PlayerSetOptions, Buffer.concat(buffers));
+}
+
+function buildDoActionPacket(actionName) {
+  const nameBytes = Buffer.from(actionName, 'utf8');
+  const data = Buffer.concat([
+    Buffer.from([nameBytes.length]),
+    nameBytes
+  ]);
+  return buildPacket(OutPacketType.PlayerDoAction, data);
 }
 
 function parseScriptFile(content) {
@@ -499,6 +609,24 @@ async function executeCommand(command, params, delay = 32) {
     case 'stopScript':
       packets = [buildScriptStatePacket(0)];
       result = { command: 'stopScript' };
+      break;
+
+    case 'opt':
+      if (!params.options || typeof params.options !== 'object') {
+        throw new Error('options is required and must be an object');
+      }
+      packets = [buildSetOptionsPacket(params.options)];
+      result = { command: 'opt', options: params.options };
+      console.log(`[API] Setting options:`, params.options);
+      break;
+
+    case 'do':
+      if (!params.action || typeof params.action !== 'string') {
+        throw new Error('action is required and must be a string');
+      }
+      packets = [buildDoActionPacket(params.action)];
+      result = { command: 'do', action: params.action };
+      console.log(`[API] Triggering action: ${params.action}`);
       break;
 
     default:
@@ -1183,118 +1311,116 @@ function getHTML() {
       margin: 0;
     }
 
-    .option-item {
-      margin: 8px 0;
+    .option-category {
+      margin-bottom: 30px;
     }
 
-    .option-page {
-      background: #0d1117;
-      border: 1px solid #30363d;
-      border-radius: 6px;
-      overflow: hidden;
-    }
-
-    .option-page-header {
-      padding: 12px 15px;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      transition: all 0.2s;
-      user-select: none;
-    }
-
-    .option-page-header:hover {
-      background: #161b22;
-    }
-
-    .option-page-header.expanded {
-      background: #1f6feb;
-      color: #fff;
-    }
-
-    .option-page-name {
-      font-weight: bold;
+    .option-category h3 {
       color: #58a6ff;
+      font-size: 1.1em;
+      margin: 0 0 15px 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #21262d;
     }
 
-    .option-page-header.expanded .option-page-name {
-      color: #fff;
-    }
-
-    .option-page-arrow {
-      font-size: 0.8em;
-      transition: transform 0.2s;
-    }
-
-    .option-page-header.expanded .option-page-arrow {
-      transform: rotate(90deg);
-    }
-
-    .option-page-content {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.3s ease;
-      background: #0d1117;
-    }
-
-    .option-page-content.expanded {
-      max-height: 2000px;
-      padding: 10px;
-    }
-
-    .option-action {
+    .option-row {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding: 10px 15px;
-      background: #161b22;
+      padding: 12px;
+      background: #0d1117;
       border: 1px solid #30363d;
       border-radius: 6px;
-      margin: 8px 0;
+      margin-bottom: 8px;
+      gap: 12px;
     }
 
-    .option-action-name {
-      color: #c9d1d9;
+    .option-label {
       flex: 1;
+      color: #c9d1d9;
+      font-size: 0.95em;
     }
 
-    .option-action-btn {
-      background: #238636;
-      color: #fff;
-      border: none;
-      padding: 6px 16px;
-      border-radius: 4px;
+    /* Toggle switch */
+    .option-toggle {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+
+    .option-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .option-slider {
+      position: absolute;
       cursor: pointer;
-      font-family: inherit;
-      font-size: 0.9em;
-      font-weight: bold;
-      transition: all 0.2s;
-      white-space: nowrap;
-      margin-left: 10px;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #30363d;
+      transition: 0.3s;
+      border-radius: 26px;
     }
 
-    .option-action-btn:hover:not(:disabled) {
-      background: #2ea043;
+    .option-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 4px;
+      bottom: 4px;
+      background-color: #8b949e;
+      transition: 0.3s;
+      border-radius: 50%;
     }
 
-    .option-action-btn:disabled {
+    .option-toggle input:checked + .option-slider {
+      background-color: #238636;
+    }
+
+    .option-toggle input:checked + .option-slider:before {
+      background-color: #fff;
+      transform: translateX(24px);
+    }
+
+    .option-toggle input:disabled + .option-slider {
       opacity: 0.5;
       cursor: not-allowed;
     }
 
-    .option-action-btn.function {
+    /* Action buttons */
+    .action-btn {
+      width: 100%;
       background: #1f6feb;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.95em;
+      font-weight: 600;
+      transition: all 0.2s;
     }
 
-    .option-action-btn.function:hover:not(:disabled) {
+    .action-btn:hover:not(:disabled) {
       background: #388bfd;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(31, 111, 235, 0.3);
     }
 
-    .nested-options {
-      margin-left: 15px;
-      padding-left: 10px;
-      border-left: 2px solid #21262d;
+    .action-btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .action-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .sidebar-info {
@@ -1312,33 +1438,75 @@ function getHTML() {
       color: #58a6ff;
     }
 
-    .delay-control {
+    .import-export-controls {
       margin-top: 15px;
-      padding-top: 15px;
-      border-top: 1px solid #30363d;
+      display: flex;
+      gap: 10px;
     }
 
-    .delay-control label {
-      display: block;
-      color: #8b949e;
-      font-size: 0.85em;
-      margin-bottom: 5px;
-    }
-
-    .delay-control input {
-      width: 100%;
-      background: #0d1117;
-      border: 1px solid #30363d;
-      color: #c9d1d9;
-      padding: 6px 10px;
-      border-radius: 4px;
+    .import-export-btn {
+      flex: 1;
+      background: #238636;
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
       font-family: inherit;
-      font-size: 0.9em;
+      font-size: 0.85em;
+      font-weight: 600;
+      transition: all 0.2s;
     }
 
-    .delay-control input:focus {
-      outline: none;
-      border-color: #58a6ff;
+    .import-export-btn:hover {
+      background: #2ea043;
+      transform: translateY(-1px);
+    }
+
+    .import-export-btn:active {
+      transform: translateY(0);
+    }
+
+    .option-category-header {
+      padding: 12px 15px;
+      background: #21262d;
+      border-radius: 6px;
+      margin: 15px 0 10px 0;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+      transition: background 0.2s;
+    }
+
+    .option-category-header:hover {
+      background: #2d333b;
+    }
+
+    .option-category-header h3 {
+      margin: 0;
+      color: #58a6ff;
+      font-size: 1em;
+      font-weight: 600;
+    }
+
+    .option-category-arrow {
+      transition: transform 0.2s;
+    }
+
+    .option-category-header.expanded .option-category-arrow {
+      transform: rotate(90deg);
+    }
+
+    .option-category-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .option-category-content.expanded {
+      max-height: 5000px;
     }
   </style>
 </head>
@@ -1396,18 +1564,17 @@ function getHTML() {
   <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <h2>⚙️ Client Config</h2>
-      <div class="delay-control">
-        <label for="packetDelay">Packet Delay (ms)</label>
-        <input type="number" id="packetDelay" value="20" min="0" max="1000" step="1">
+      <div class="import-export-controls">
+        <button class="import-export-btn" onclick="exportOptions()">📥 Export Options</button>
+        <button class="import-export-btn" onclick="importOptions()">📤 Import Options</button>
       </div>
     </div>
     <div class="sidebar-content">
       <div class="sidebar-info">
-        <strong>Note:</strong> These options control the in-game practice mod menu.
-        The game does not report current option states, so option status cannot be displayed here.
-        Commands are sent as D-Pad navigation sequences.
+        <strong>Practice Mod Options:</strong> Toggle switches to enable/disable mod features.
+        Actions trigger one-time effects. Import/Export buttons save/load option configurations.
       </div>
-      <ul class="option-tree" id="optionTree"></ul>
+      <div id="optionTree"></div>
     </div>
   </div>
 
@@ -1743,9 +1910,14 @@ function getHTML() {
         btn.disabled = !isConnected;
       });
 
-      // Also update sidebar option buttons
-      const optionButtons = document.querySelectorAll('.option-action-btn');
-      optionButtons.forEach(btn => {
+      // Update sidebar option toggles and action buttons
+      const optionToggles = document.querySelectorAll('.option-toggle input');
+      optionToggles.forEach(toggle => {
+        toggle.disabled = !isConnected;
+      });
+
+      const actionButtons = document.querySelectorAll('.action-btn');
+      actionButtons.forEach(btn => {
         btn.disabled = !isConnected;
       });
     }
@@ -1792,8 +1964,8 @@ function getHTML() {
     // Stage list for datalist
     const STAGES = ["AnimalChaseExStage", "BikeSteelExStage", "BikeSteelNoCapExStage", "BossRaidWorldHomeStage", "BullRunExStage", "ByugoPuzzleExStage", "CapAppearExStage", "CapAppearLavaLiftExStage", "CapRotatePackunExStage", "CapWorldHomeStage", "CapWorldTowerStage", "CityPeopleRoadStage", "CityWorld2DSign000Zone", "CityWorld2DSign001Zone", "CityWorld2DSign002Zone", "CityWorld2DSign003Zone", "CityWorld2DSign004Zone", "CityWorld2DSign005Zone", "CityWorld2DSign006Zone", "CityWorldFactory01Zone", "CityWorldFactoryStage", "CityWorldHomeStage", "CityWorldMainTowerStage", "CityWorldSandSlotStage", "CityWorldShop01Stage", "CityWorldTimerAthletic000Zone", "CityWorldTimerAthletic002Zone", "CityWorldTimerAthletic003Zone", "ClashWorldHomeStage", "ClashWorldShopStage", "CloudExStage", "CloudWorldHomeStage", "Cube2DExStage", "DemoBossRaidAttackStage", "DemoChangeWorldBossRaidAttackStage", "DemoChangeWorldFindKoopaShipStage", "DemoChangeWorldStage", "DemoCrashHomeFallStage", "DemoCrashHomeStage", "DemoEndingStage", "DemoHackFirstStage", "DemoHackKoopaStage", "DemoLavaWorldScenario1EndStage", "DemoMeetCapNpcSubStage", "DemoOpeningStage", "DemoStartWorldWaterfallStage", "DemoTakeOffKoopaForMoonStage", "DemoWorldMoveBackwardArriveStage", "DemoWorldMoveBackwardStage", "DemoWorldMoveForwardArriveStage", "DemoWorldMoveForwardFirstStage", "DemoWorldMoveForwardStage", "DemoWorldMoveMoonBackwardStage", "DemoWorldMoveMoonForwardFirstStage", "DemoWorldMoveMoonForwardStage", "DemoWorldWarpHoleStage", "DonsukeExStage", "DotHardExStage", "DotTowerExStage", "ElectricWireExStage", "FastenerExStage", "FogMountainExStage", "ForestWorld2DRoadZone", "ForestWorldAthleticZone", "ForestWorldBonusStage", "ForestWorldBossStage", "ForestWorldCloudBonusExStage", "ForestWorldHomeStage", "ForestWorldTimerAthletic001Zone", "ForestWorldTowerStage", "ForestWorldWaterExStage", "ForestWorldWoodsCostumeStage", "ForestWorldWoodsStage", "ForestWorldWoodsTreasureStage", "ForkExStage", "FrogPoisonExStage", "FrogSearchExStage", "FukuwaraiKuriboStage", "FukuwaraiMarioStage", "GabuzouClockExStage", "Galaxy2DExStage", "GotogotonExStage", "HomeShipInsideStage", "IceWalkerExStage", "IceWaterBlockExStage", "IceWaterDashExStage", "ImomuPoisonExStage", "JangoExStage", "JizoSwitchExStage", "KaronWingTowerStage", "KillerRailCollisionExStage", "KillerRoadExStage", "KillerRoadNoCapExStage", "LakeWorld2DZone", "LakeWorldHomeStage", "LakeWorldShopStage", "LakeWorldTimerAthletic000Zone", "LakeWorldTownZone", "LavaBonus1Zone", "LavaWorldBubbleLaneExStage", "LavaWorldCaveZone", "LavaWorldClockExStage", "LavaWorldCostumeStage", "LavaWorldExcavationExStage", "LavaWorldFenceLiftExStage", "LavaWorldHomeStage", "LavaWorldIslandZone", "LavaWorldShopStage", "LavaWorldTimerAthletic000Zone", "LavaWorldTimerAthletic001Zone", "LavaWorldTreasureStage", "LavaWorldUpDownExStage", "LavaWorldUpDownYoshiExStage", "Lift2DExStage", "MeganeLiftExStage", "MoonAthleticExStage", "MoonWorldBasement000Zone", "MoonWorldBasement001Zone", "MoonWorldBasement002Zone", "MoonWorldBasement003Zone", "MoonWorldBasement004Zone", "MoonWorldBasementStage", "MoonWorldCaptureParadeBullZone", "MoonWorldCaptureParadeKillerZone", "MoonWorldCaptureParadeLavaPillarZone", "MoonWorldCaptureParadeLiftZone", "MoonWorldCaptureParadeMeganeZone", "MoonWorldCaptureParadeStage", "MoonWorldHome2DZone", "MoonWorldHomeStage", "MoonWorldKoopa1Stage", "MoonWorldKoopa2Stage", "MoonWorldShopRoom", "MoonWorldSphinxRoom", "MoonWorldWeddingRoom2Stage", "MoonWorldWeddingRoomStage", "MoonWorldWeddingRoomZone", "Note2D3DRoomExStage", "PackunPoisonExStage", "PackunPoisonNoCapExStage", "PeachWorldCastleStage", "PeachWorldCostumeStage", "PeachWorldHomeStage", "PeachWorldPictureBossForestStage", "PeachWorldPictureBossKnuckleStage", "PeachWorldPictureBossMagmaStage", "PeachWorldPictureBossRaidStage", "PeachWorldPictureGiantWanderBossStage", "PeachWorldPictureMofumofuStage", "PeachWorldPictureRoomDokanZone", "PeachWorldPictureRoomZone", "PeachWorldShopStage", "PoisonWaveExStage", "PoleGrabCeilExStage", "PoleKillerExStage", "PushBlockExStage", "RadioControlExStage", "RailCollisionExStage", "ReflectBombExStage", "RevengeBossKnuckleStage", "RevengeBossMagmaStage", "RevengeBossRaidStage", "RevengeForestBossStage", "RevengeGiantWanderBossStage", "RevengeMofumofuStage", "RocketFlowerExStage", "RollingExStage", "SandWorldCostumeStage", "SandWorldHomeStage", "SandWorldHomeTownZone", "SandWorldKillerExStage", "SandWorldKillerTowerZone", "SandWorldMeganeExStage", "SandWorldPressExStage", "SandWorldPyramid000Stage", "SandWorldPyramid001Stage", "SandWorldRotateExStage", "SandWorldSecretStage", "SandWorldShopStage", "SandWorldSlotStage", "SandWorldSphinxExStage", "SandWorldUnderground000Stage", "SandWorldUnderground001Stage", "SandWorldVibrationStage", "SeaWorld2DLargeZone", "SeaWorld2DSmallZone", "SeaWorldBeachVolleyBallZone", "SeaWorldBottomHollowZone", "SeaWorldCostumeStage", "SeaWorldCoveCaveZone", "SeaWorldDamageBallZone", "SeaWorldHomeStage", "SeaWorldLavaZone", "SeaWorldLighthouseZone", "SeaWorldLongReefZone", "SeaWorldSecretStage", "SeaWorldSneakingManStage", "SeaWorldSphinxQuizZone", "SeaWorldUnderGlassZone", "SeaWorldUtsuboCaveStage", "SeaWorldUtsuboDenZone", "SeaWorldVibrationStage", "SeaWorldWallCaveCenterZone", "SeaWorldWallCaveWestZone", "SenobiTowerExStage", "SenobiTowerYoshiExStage", "ShootingCityExStage", "ShootingCityYoshiExStage", "ShootingElevatorExStage", "SkyWorldCastleZone", "SkyWorldCloudBonusExStage", "SkyWorldCostumeStage", "SkyWorldHomeStage", "SkyWorldShopStage", "SkyWorldTreasureStage", "SkyWorldWallZone", "SnowWorldBalconyZone", "SnowWorldByugoZone", "SnowWorldCloudBonusExStage", "SnowWorldCostumeStage", "SnowWorldGabuzouZone", "SnowWorldHomeStage", "SnowWorldIcicleZone", "SnowWorldLobby000Stage", "SnowWorldLobby001Stage", "SnowWorldLobbyExStage", "SnowWorldRace000Stage", "SnowWorldRace001Stage", "SnowWorldRaceCircuitZone", "SnowWorldRaceExStage", "SnowWorldRaceExZone", "SnowWorldRaceFlagZone", "SnowWorldRaceGroundZone", "SnowWorldRaceHardExStage", "SnowWorldRaceObjectZone", "SnowWorldRaceTutorialStage", "SnowWorldShopStage", "SnowWorldTownStage", "SnowWorldTownZone", "Special1WorldHomeStage", "Special1WorldTowerBombTailStage", "Special1WorldTowerCapThrowerStage", "Special1WorldTowerFireBlowerStage", "Special1WorldTowerRoomZone", "Special1WorldTowerStackerStage", "Special2WorldCloudStage", "Special2WorldHomeStage", "Special2WorldKoopaStage", "Special2WorldLavaStage", "StaffRollMoonRockDemo", "SwingSteelExStage", "Theater2DExStage", "TogezoRotateExStage", "TrampolineWallCatchExStage", "TrexBikeExStage", "TrexPoppunExStage", "TsukkunClimbExStage", "TsukkunRotateExStage", "WanwanClashExStage", "WaterTubeExStage", "WaterValleyExStage", "WaterfallWorldHomeStage", "WindBlowExStage", "WorldMapStage", "YoshiCloudExStage"];
 
-    // Option pages configuration
-    const OPTION_PAGES = ${JSON.stringify(optionPages)};
+    // Practice options configuration
+    const PRACTICE_OPTIONS = ${JSON.stringify(practiceOptions)};
 
     // Sidebar functions
     function toggleSidebar() {
@@ -1816,146 +1988,251 @@ function getHTML() {
       hamburger.classList.remove('active');
     }
 
-    // Render option tree recursively
-    function renderOptionTree(items, parentPath = []) {
-      let html = '<ul class="option-tree">';
+    // LocalStorage helpers for option persistence
+    function getSavedOptionValue(optionName) {
+      const saved = localStorage.getItem('smo_opt_' + optionName);
+      return saved !== null ? saved === 'true' : null;
+    }
 
-      // Sort items by index
-      const sortedItems = [...items].sort((a, b) => a.index - b.index);
+    function saveOptionValue(optionName, value) {
+      localStorage.setItem('smo_opt_' + optionName, value.toString());
+    }
 
-      for (const item of sortedItems) {
-        const currentPath = [...parentPath, item];
+    // Render options sidebar with hierarchical structure
+    function renderOptions() {
+      let html = '';
 
-        if (item.type === 'page') {
-          // This is a nested page
-          const pageId = currentPath.map(p => p.index).join('_');
-          html += \`
-            <li class="option-item">
-              <div class="option-page">
-                <div class="option-page-header" onclick="toggleOptionPage('\${pageId}')">
-                  <span class="option-page-name">\${item.name}</span>
-                  <span class="option-page-arrow">▶</span>
-                </div>
-                <div class="option-page-content" id="page_\${pageId}">
-                  <div class="nested-options">
-                    \${item.nest ? renderOptionTree(item.nest, currentPath) : ''}
-                  </div>
-                </div>
+      // Render each category
+      for (const category of PRACTICE_OPTIONS.categories) {
+        const catId = category.name.replace(/\s+/g, '_');
+        html += \`
+          <div class="option-category-header" onclick="toggleCategory('\${catId}')">
+            <h3>\${category.name}</h3>
+            <span class="option-category-arrow">▶</span>
+          </div>
+          <div class="option-category-content" id="cat_\${catId}">
+        \`;
+
+        // Render category options
+        if (category.options) {
+          for (const option of category.options) {
+            const savedValue = getSavedOptionValue(option.name);
+            const isChecked = savedValue !== null ? savedValue : (option.name === 'shouldRender');
+            html += \`
+              <div class="option-row">
+                <label class="option-toggle">
+                  <input type="checkbox"
+                         id="opt_\${option.name}"
+                         onchange="setOption('\${option.name}', this.checked)"
+                         \${isChecked ? 'checked' : ''}
+                         \${!isConnected ? 'disabled' : ''}>
+                  <span class="option-slider"></span>
+                </label>
+                <span class="option-label">\${option.label}</span>
               </div>
-            </li>
-          \`;
-        } else if (item.type === 'bool' || item.type === 'function') {
-          // This is an actionable option
-          const buttonText = item.type === 'function' ? 'Execute' : 'Toggle';
-          const buttonClass = item.type === 'function' ? 'function' : '';
-          html += \`
-            <li class="option-item">
-              <div class="option-action">
-                <span class="option-action-name">\${item.name}</span>
-                <button class="option-action-btn \${buttonClass}"
-                        onclick="executeOption(\${JSON.stringify(currentPath).replace(/"/g, '&quot;')})"
-                        \${!isConnected ? 'disabled' : ''}>
-                  \${buttonText}
-                </button>
-              </div>
-            </li>
-          \`;
+            \`;
+          }
         }
+
+        // Render subcategories
+        if (category.subcategories) {
+          for (const subcat of category.subcategories) {
+            const subcatId = catId + '_' + subcat.name.replace(/\s+/g, '_');
+            html += \`
+              <div class="option-category-header" onclick="toggleCategory('\${subcatId}')" style="margin-left: 15px; font-size: 0.95em;">
+                <h3>\${subcat.name}</h3>
+                <span class="option-category-arrow">▶</span>
+              </div>
+              <div class="option-category-content" id="cat_\${subcatId}">
+            \`;
+
+            for (const option of subcat.options) {
+              const savedValue = getSavedOptionValue(option.name);
+              const isChecked = savedValue !== null ? savedValue : (option.name === 'shouldRender');
+              html += \`
+                <div class="option-row" style="margin-left: 15px;">
+                  <label class="option-toggle">
+                    <input type="checkbox"
+                           id="opt_\${option.name}"
+                           onchange="setOption('\${option.name}', this.checked)"
+                           \${isChecked ? 'checked' : ''}
+                           \${!isConnected ? 'disabled' : ''}>
+                    <span class="option-slider"></span>
+                  </label>
+                  <span class="option-label">\${option.label}</span>
+                </div>
+              \`;
+            }
+
+            html += '</div>';
+          }
+        }
+
+        html += '</div>';
       }
 
-      html += '</ul>';
+      // Actions Section
+      html += \`
+        <div class="option-category-header" onclick="toggleCategory('actions')">
+          <h3>Actions</h3>
+          <span class="option-category-arrow">▶</span>
+        </div>
+        <div class="option-category-content" id="cat_actions">
+      \`;
+
+      for (const action of PRACTICE_OPTIONS.actions) {
+        html += \`
+          <div class="option-row">
+            <button class="action-btn"
+                    onclick="triggerAction('\${action.name}')"
+                    \${!isConnected ? 'disabled' : ''}>
+              \${action.label}
+            </button>
+          </div>
+        \`;
+      }
+
+      html += '</div>';
+
       return html;
     }
 
-    function toggleOptionPage(pageId) {
-      const header = event.target.closest('.option-page-header');
-      const content = document.getElementById('page_' + pageId);
+    function toggleCategory(catId) {
+      const header = event.target.closest('.option-category-header');
+      const content = document.getElementById('cat_' + catId);
 
       header.classList.toggle('expanded');
       content.classList.toggle('expanded');
     }
 
-    // Generate D-Pad navigation commands for an option
-    function generateNavigationSequence(optionPath) {
-      const commands = [];
+    // Set an option value
+    async function setOption(optionName, value) {
+      // Save to localStorage immediately
+      saveOptionValue(optionName, value);
 
-      // Step 1: Navigate back to the root page
-      // We need to ensure we're at the first page, regardless of where the user currently is.
-      // The strategy: Select index 0 (which is either a back button or credits), then press
-      // Right enough times to navigate back through all possible nested pages.
-
-      // Start by selecting index 0
-      commands.push({ command: 'select', params: { index: 0 } });
-
-      // Use a conservative number of back presses to guarantee reaching the root
-      // 5 sequences should be enough for the menu depth
-      const CONSERVATIVE_BACK_PRESSES = 5;
-
-      for (let i = 0; i < CONSERVATIVE_BACK_PRESSES; i++) {
-        commands.push({ command: 'right' });
-      }
-
-      // Step 2: Navigate to the target option
-      for (let i = 0; i < optionPath.length; i++) {
-        const item = optionPath[i];
-
-        // The JSON indices are already 0-based and account for the back button at index 0
-        commands.push({ command: 'select', params: { index: item.index } });
-
-        // Press Right to either enter the page or toggle/execute the option
-        commands.push({ command: 'right' });
-      }
-
-      // Step 3: Navigate back to the root page
-      // Count the number of pages in the path to know how many levels to go back
-      const pageDepth = optionPath.filter(item => item.type === 'page').length;
-
-      for (let i = 0; i < pageDepth; i++) {
-        commands.push({ command: 'select', params: { index: 0 } });
-        commands.push({ command: 'right' });
-      }
-
-      return commands;
-    }
-
-    // Execute an option by sending the navigation sequence
-    async function executeOption(optionPath) {
       if (!isConnected) {
         addLog('Error: No Switch client connected', 'error');
         return;
       }
 
       try {
-        const commands = generateNavigationSequence(optionPath);
-        const optionName = optionPath[optionPath.length - 1].name;
-        const delay = parseInt(document.getElementById('packetDelay').value) || 20;
+        const options = {};
+        options[optionName] = value;
 
-        addLog(\`Executing: \${optionName}\`);
-        addLog(\`Sending \${commands.length} D-Pad commands: \${commands.map(c => c.command + (c.params ? '(' + c.params.index + ')' : '')).join(', ')}\`);
+        addLog(\`Setting \${optionName} = \${value}\`);
 
-        // Send commands via the API queue endpoint
         const res = await fetch('/api/queue', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ commands, delay })
+          body: JSON.stringify({
+            commands: [{ command: 'opt', params: { options } }]
+          })
         });
 
         const data = await res.json();
 
         if (data.success) {
-          addLog(\`Successfully executed: \${optionName}\`, 'success');
+          addLog(\`Successfully set: \${optionName} = \${value}\`, 'success');
         } else {
-          addLog(\`Failed to execute: \${optionName} - \${data.errors?.[0]?.error || 'Unknown error'}\`, 'error');
+          addLog(\`Failed to set option: \${data.errors?.[0]?.error || 'Unknown error'}\`, 'error');
         }
       } catch (err) {
-        addLog('Execution failed: ' + err.message, 'error');
+        addLog('Failed to set option: ' + err.message, 'error');
       }
+    }
+
+    // Trigger an action
+    async function triggerAction(actionName) {
+      if (!isConnected) {
+        addLog('Error: No Switch client connected', 'error');
+        return;
+      }
+
+      try {
+        addLog(\`Triggering action: \${actionName}\`);
+
+        const res = await fetch('/api/queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            commands: [{ command: 'do', params: { action: actionName } }]
+          })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          addLog(\`Successfully triggered: \${actionName}\`, 'success');
+        } else {
+          addLog(\`Failed to trigger action: \${data.errors?.[0]?.error || 'Unknown error'}\`, 'error');
+        }
+      } catch (err) {
+        addLog('Failed to trigger action: ' + err.message, 'error');
+      }
+    }
+
+    // Export options as JSON
+    function exportOptions() {
+      const options = {};
+
+      // Collect all option states
+      const checkboxes = document.querySelectorAll('.option-toggle input[type="checkbox"]');
+      checkboxes.forEach(checkbox => {
+        const optionName = checkbox.id.replace('opt_', '');
+        options[optionName] = checkbox.checked;
+      });
+
+      const json = JSON.stringify(options, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'smo-practice-options.json';
+      a.click();
+      URL.revokeObjectURL(url);
+
+      addLog('Exported options to JSON', 'success');
+    }
+
+    // Import options from JSON
+    function importOptions() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+          const text = await file.text();
+          const options = JSON.parse(text);
+
+          // Apply all options
+          for (const [name, value] of Object.entries(options)) {
+            const checkbox = document.getElementById('opt_' + name);
+            if (checkbox) {
+              checkbox.checked = value;
+              // Send to mod if connected
+              if (isConnected) {
+                await setOption(name, value);
+              }
+            }
+          }
+
+          addLog(\`Imported \${Object.keys(options).length} options from JSON\`, 'success');
+        } catch (err) {
+          addLog('Failed to import options: ' + err.message, 'error');
+        }
+      };
+
+      input.click();
     }
 
     // Initialize sidebar
     function initializeSidebar() {
       const optionTree = document.getElementById('optionTree');
-      optionTree.innerHTML = renderOptionTree(OPTION_PAGES);
+      optionTree.innerHTML = renderOptions();
     }
 
     // Initialize
