@@ -18,7 +18,7 @@
 3. Unzip the downloaded archive and copy the contents of the `atmosphere` directory to `[Switch SD Root]/mods/Super Mario Odyssey/Practice Mod/`.
 4. From your Switch, open the **SimpleModManager** Homebrew app.
 > [!CAUTION]
-> If using Applet Mode to launch Homebrew apps, don't launch the Homebrew menu from Super Mario Odyssey. (Modifying the contents of a running game is a bad idea!)
+> If using title override to launch Homebrew apps, don't launch the Homebrew menu from Super Mario Odyssey. (Modifying the contents of a running game is a bad idea!)
 5. Navigate to Super Mario Odyssey and toggle the mod called **Practice Mod**
 
 ### Setting up your server
